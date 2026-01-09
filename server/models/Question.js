@@ -5,7 +5,7 @@ const questionSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  title: String,
+  title: {type:String, required: true},
   description: String,
   difficulty: {
     type: String,
@@ -18,7 +18,7 @@ const questionSchema = new mongoose.Schema({
     enum: ['Single Correct', 'Multiple Correct', 'Coding'],
   },
   options: [String],
-  correctAnswer: String,
+  correctAnswer: mongoose.Schema.Types.Mixed,
   // Coding specific fields
   constraints: String,
   inputFormat: String,
@@ -39,8 +39,8 @@ const questionSchema = new mongoose.Schema({
     }
   }],
   testcases: [{
-    input: Object,
-    output: String
+    input: { type: String},
+    output: { type: String}
   }],
 }, { timestamps: true });
 

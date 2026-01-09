@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const contestSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -9,6 +10,12 @@ const contestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Added joinId 
+  joinId: {
+    type: String,
+    unique: true,
+
+  },
   startTime: {
     type: Date,
     required: true,
@@ -16,6 +23,11 @@ const contestSchema = new mongoose.Schema({
   endTime: {
     type: Date,
     required: true,
+  },
+  // Added duration for Module 1 logic (calculated in minutes)
+  duration: {
+    type: Number,
+
   },
   questions: [String],
   author: {
@@ -26,6 +38,14 @@ const contestSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  // Added violations array to support the manageViolations controller
+  violations: [
+    {
+      user: String,
+      timestamp: { type: Date, default: Date.now },
+      details: String,
+    }
+  ],
   visibility: {
     type: String,
     enum: ['public', 'private'],
@@ -37,5 +57,14 @@ const contestSchema = new mongoose.Schema({
     default: 'waiting',
   },
 }, { timestamps: true });
+
+// Pre-save middleware to automatically calculate duration if not provided
+contestSchema.pre('save', function(next) {
+  if (this.startTime && this.endTime) {
+    const diffInMs = this.endTime - this.startTime;
+    this.duration = Math.floor(diffInMs / (1000 * 60)); // Convert ms to minutes
+  }
+  next();
+});
 
 module.exports = mongoose.models.Contest || mongoose.model('Contest', contestSchema);

@@ -264,12 +264,12 @@ rl.on('line', (line) => {
     console.log(result[0] + ' ' + result[1]);
 });`,
     },
-    testcases: JSON.stringify([
+    testcases: [
       { input: '4 9\n2 7 11 15', output: '0 1' },
       { input: '3 6\n3 2 4', output: '1 2' },
       { input: '2 6\n3 3', output: '0 1' },
       { input: '5 10\n1 5 3 7 9', output: '1 3' },
-    ]),
+    ],
   },
   {
     type: 'coding',
@@ -362,13 +362,13 @@ int main() {
     return 0;
 }`,
     },
-    testcases: JSON.stringify([
+    testcases: [
       { input: '121', output: 'true' },
       { input: '-121', output: 'false' },
       { input: '10', output: 'false' },
       { input: '0', output: 'true' },
       { input: '12321', output: 'true' },
-    ]),
+    ],
   },
   {
     type: 'coding',
@@ -464,13 +464,13 @@ int main() {
     return 0;
 }`,
     },
-    testcases: JSON.stringify([
+    testcases: [
       { input: 'abcabcbb', output: '3' },
       { input: 'bbbbb', output: '1' },
       { input: 'pwwkew', output: '3' },
-      { input: '', output: '0' },
+      { input: ' ', output: '0' },
       { input: 'dvdf', output: '3' },
-    ]),
+    ],
   },
   {
     type: 'coding',
@@ -621,12 +621,12 @@ int main() {
     return 0;
 }`,
     },
-    testcases: JSON.stringify([
+    testcases: [
       { input: '3\n1 4 5\n1 3 4\n2 6', output: '1 1 2 3 4 4 5 6' },
       { input: '0\n', output: '' },
       { input: '2\n\n', output: '' },
       { input: '1\n1 2 3', output: '1 2 3' },
-    ]),
+    ],
   },
   // Edge case: Coding question with minimal boilerplate
   {
@@ -643,11 +643,11 @@ int main() {
 # Write your code here
 `,
     },
-    testcases: JSON.stringify([
+    testcases: [
       { input: '5 3', output: '8' },
       { input: '-5 3', output: '-2' },
       { input: '0 0', output: '0' },
-    ]),
+    ],
   },
 ];
 
@@ -660,8 +660,9 @@ const contests = [
     title: 'Beginner Programming Contest',
     description: 'A contest for beginners to test their basic programming skills. This contest includes easy problems on arrays, strings, and basic algorithms.',
     type: 'coding',
-    startTime: new Date('2026-02-01T10:00:00Z'),
-    endTime: new Date('2026-02-01T13:00:00Z'),
+    joinId: '123456',
+    startTime: new Date('2026-01-09T10:00:00Z'),
+    endTime: new Date('2026-01-09T14:00:00Z'),
     questions: [], // Will be populated with question IDs
     author: '', // Will be populated with admin user ID
     rules: [
@@ -677,7 +678,7 @@ const contests = [
     title: 'Data Structures Challenge',
     description: 'Test your knowledge of fundamental data structures including stacks, queues, linked lists, trees, and graphs.',
     type: 'coding',
-    startTime: new Date('2026-02-05T14:00:00Z'),
+    joinId: '654321',    startTime: new Date('2026-02-05T14:00:00Z'),
     endTime: new Date('2026-02-05T18:00:00Z'),
     questions: [],
     author: '',
@@ -694,6 +695,7 @@ const contests = [
     title: 'Algorithm Masterclass',
     description: 'Advanced algorithmic problems focusing on dynamic programming, graph algorithms, and optimization techniques. For experienced programmers only.',
     type: 'coding',
+    joinId: '112233',
     startTime: new Date('2026-02-10T09:00:00Z'),
     endTime: new Date('2026-02-10T14:00:00Z'),
     questions: [],
@@ -711,6 +713,7 @@ const contests = [
     title: 'Quick MCQ Quiz',
     description: 'A rapid-fire MCQ quiz covering computer science fundamentals, programming concepts, and software engineering principles.',
     type: 'mcq',
+    joinId: '445566',
     startTime: new Date('2026-01-25T11:00:00Z'),
     endTime: new Date('2026-01-25T12:00:00Z'),
     questions: [],
@@ -728,6 +731,7 @@ const contests = [
     title: 'Mixed Assessment Test',
     description: 'A comprehensive assessment combining both MCQ questions and coding problems to evaluate overall programming proficiency.',
     type: 'mixed',
+    joinId: '778899',
     startTime: new Date('2026-02-15T10:00:00Z'),
     endTime: new Date('2026-02-15T15:00:00Z'),
     questions: [],
@@ -746,6 +750,7 @@ const contests = [
     title: 'Past Contest - Winter Challenge 2025',
     description: 'This contest has already concluded. Results are available.',
     type: 'coding',
+    joinId: '000999',
     startTime: new Date('2025-12-01T10:00:00Z'),
     endTime: new Date('2025-12-01T15:00:00Z'),
     questions: [],
@@ -759,6 +764,7 @@ const contests = [
     title: 'Upcoming Sprint - Starting Soon',
     description: 'Get ready! This contest starts in a few hours.',
     type: 'mcq',
+    joinId: '333444',
     startTime: new Date('2026-01-07T10:00:00Z'),
     endTime: new Date('2026-01-07T11:30:00Z'),
     questions: [],
@@ -772,6 +778,7 @@ const contests = [
     title: 'Live Hackathon 2026',
     description: 'This contest is currently live! Join now.',
     type: 'mixed',
+    joinId: '555666',
     startTime: new Date('2026-01-01T00:00:00Z'),
     endTime: new Date('2026-01-31T23:59:59Z'),
     questions: [],
@@ -785,6 +792,7 @@ const contests = [
     title: 'Monthly Marathon Challenge',
     description: 'A month-long coding challenge with problems released weekly. Solve at your own pace!',
     type: 'coding',
+    joinId: '777888',
     startTime: new Date('2026-03-01T00:00:00Z'),
     endTime: new Date('2026-03-31T23:59:59Z'),
     questions: [],
@@ -803,6 +811,7 @@ const contests = [
     title: 'Internal Assessment',
     description: '',
     type: 'mixed',
+    joinId: '999000',
     startTime: new Date('2026-02-20T10:00:00Z'),
     endTime: new Date('2026-02-20T12:00:00Z'),
     questions: [],
