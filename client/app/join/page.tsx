@@ -20,11 +20,11 @@ export default function JoinContestPage() {
   const isSignedIn = status === "authenticated";
   const allFilled = otp.length === 6;
 
-  // Debugging: This will help you see if the "Passport" (token) is actually there
+  
   useEffect(() => {
     if (session) {
       console.log("Next-Auth Session Active:", session.user?.email);
-      // NOTE: We changed this to check for backendToken
+      
       console.log("Backend Token available:", !!session.backendToken); 
     }
   }, [session]);
@@ -34,7 +34,7 @@ export default function JoinContestPage() {
 
     setIsLoading(true);
     try {
-      // ✅ FIX: Use backendToken (minted in your auth.config.ts)
+     
       const token = session?.backendToken; 
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/test-access/validate`, {
@@ -46,7 +46,7 @@ export default function JoinContestPage() {
         body: JSON.stringify({ joinId: otp }),
       });
 
-      // If the backend still says 401, it means the AUTH_SECRET doesn't match
+      
       if (response.status === 401) {
         toast.error("Security verification failed. Please sign out and sign in again.");
         setIsLoading(false);
@@ -81,7 +81,7 @@ export default function JoinContestPage() {
             onClick={() => signIn()} 
             className="w-full h-11 bg-primary text-primary-foreground font-semibold rounded-full hover:bg-primary/90 transition"
           >
-            Sign In to Collabboard
+            Sign In 
           </button>
         </div>
       </main>
