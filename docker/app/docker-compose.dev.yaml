@@ -1,0 +1,59 @@
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - PORT=${PORT}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - JUDGE0_URL=${JUDGE0_URL}
+    depends_on:
+      - mongo
+    develop:
+      watch:
+        - action: sync
+          path: ./server
+          target: /app/server
+          ignore:
+            - server/node_modules
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - AUTH_SECRET=${AUTH_SECRET}
+    develop:
+      watch:
+        - action: sync
+          path: ./client
+          target: /app/client
+          ignore:
+            - client/node_modules
+            - client/.next
+
+  seed:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: node scripts/seed.js
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:

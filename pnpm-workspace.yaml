@@ -4,6 +4,5 @@ packages:
   - client
 
 onlyBuiltDependencies:
-  - '@clerk/shared'
   - sharp
   - unrs-resolver

@@ -172,15 +172,12 @@ importers:
 
   server:
     dependencies:
-      '@clerk/express':
-        specifier: ^1.7.62
-        version: 1.7.62(express@5.2.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@pomelo/code-gen':
+        specifier: workspace:*
+        version: link:../packages/code-gen
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
-      code-gen:
-        specifier: workspace:*
-        version: link:../packages/code-gen
       cors:
         specifier: ^2.8.5
         version: 2.8.5

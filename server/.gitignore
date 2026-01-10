@@ -1,6 +1,7 @@
 /node_modules
-.env
+.env*
+!.env.example
+
 todo.txt
 routesinfo.txt
 api-spec.ts
-.

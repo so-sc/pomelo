@@ -29,6 +29,8 @@ app.use(express.json());
 //app.use(clerkMiddleware()); 
 
 app.get('/', (req, res) => { res.send("SOSCEvMan API is running...") });
+// Compiler Routes
+// app.use("/cmp", compRoutes); 
 
 app.use('/cmp', compRoutes);
 app.use('/api/admin', adminRoutes);
