@@ -27,4 +27,7 @@ const requireAuth = () => async (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth };
+// Placeholder for options - can be extended for optional authentication
+const options = {};
+
+module.exports = { requireAuth, options };
