@@ -8,8 +8,8 @@ services:
 
   server:
     build:
-      context: .
-      dockerfile: server/Dockerfile
+      context: ../../  
+      dockerfile: server/Dockerfile 
     ports:
       - "8080:8080"
     environment:
@@ -22,14 +22,14 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./server
+          path: ../../server
           target: /app/server
           ignore:
-            - server/node_modules
+            - node_modules
 
   client:
     build:
-      context: .
+      context: ../../  # Point to the PROJECT ROOT
       dockerfile: client/Dockerfile.dev
     ports:
       - "3000:3000"
@@ -39,17 +39,17 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./client
+          path: ../../client
           target: /app/client
           ignore:
-            - client/node_modules
-            - client/.next
+            - node_modules
+            - .next
 
   seed:
     build:
-      context: .
+      context: ../../
       dockerfile: server/Dockerfile
-    command: node scripts/seed.js
+    command: node server/scripts/seed.js # Updated path
     environment:
       - MONGODB_URI=${MONGODB_URI}
     depends_on:
