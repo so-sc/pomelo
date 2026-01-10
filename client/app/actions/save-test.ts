@@ -1,14 +1,14 @@
 "use server";
 
 import { testSchema, TestSchema } from "@/types/test";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
 export async function saveTest(_prevState: any, data: TestSchema) {
   try {
     const validatedData = testSchema.parse(data);
-    const { getToken } = await auth();
-    const token = await getToken();
+    const session = await auth();
+    const token = session?.backendToken;
 
     console.log("Saving test:", validatedData);
 

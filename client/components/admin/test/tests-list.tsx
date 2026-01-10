@@ -7,28 +7,30 @@ import { TestCard } from "@/components/admin/test/test-card";
 import { EmptyState } from "@/components/admin/empty-placeholder";
 
 interface Props {
-    initialTests: any[];
+  initialTests: any[];
 }
 
 export function TestsList({ initialTests }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
-  
+
+  // Map mongo objects if needed or assume they match what TestCard expects
+  // TestCard expects 'Test' type. We might need mapping.
   // Map mongo objects if needed or assume they match what TestCard expects
   // TestCard expects 'Test' type. We might need mapping.
   const tests = initialTests.map(t => ({
-      id: t._id,
-      title: t.title,
-      description: t.description,
-      status: t.status || 'waiting',
-      // Map other fields as necessary for TestCard
-      questions: t.questions?.length || 0,
-      totalQuestions: t.questions?.length || 0, // Add missing field
-      problems: t.questions || [], // Add missing field, passing array of IDs or objects
-      duration: t.duration || "0",
-      startsAt: t.startTime,
-      participantsInProgress: 0, // Placeholder or real data
-      participantsCompleted: 0,
-      createdAt: t.createdAt,
+    id: t.id || t._id,
+    title: t.title,
+    description: t.description,
+    status: t.status || 'waiting',
+    // Map other fields as necessary for TestCard
+    questions: t.problemCount || t.questions?.length || 0,
+    totalQuestions: t.problemCount || t.questions?.length || 0,
+    problems: t.questions || [],
+    duration: t.duration || "0",
+    startsAt: t.startsAt || t.startTime,
+    participantsInProgress: t.participants || 0,
+    participantsCompleted: 0,
+    createdAt: t.createdAt,
   }));
 
   const filteredTests = tests.filter(

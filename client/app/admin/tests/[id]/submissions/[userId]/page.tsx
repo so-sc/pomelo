@@ -80,27 +80,34 @@ export default function SubmissionDetailPage() {
             // Mocking submission details based on questions in the test
             const details: SubmissionDetail[] = (test.problems || []).map(qId => {
                 const q = getQuestionById(qId);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const qAny = q as any;
                 if (!q) return null as any;
 
                 if (q.type === "mcq") {
+                    const options = (qAny.options || []).map((opt: string | { id: string, text: string }, i: number) => {
+                        if (typeof opt === 'string') return { id: String.fromCharCode(97 + i), text: opt };
+                        return opt;
+                    });
+
                     return {
                         questionId: q.id,
                         type: "mcq",
                         questionTitle: q.title,
-                        points: q.points,
-                        earnedPoints: Math.random() > 0.3 ? q.points : 0,
+                        points: q.marks,
+                        earnedPoints: Math.random() > 0.3 ? q.marks : 0,
                         status: Math.random() > 0.3 ? "PASSED" : "FAILED",
-                        selectedOptions: [q.options[0].id],
-                        correctOptions: q.correctOptionIds,
-                        options: q.options
+                        selectedOptions: [options[0]?.id],
+                        correctOptions: [qAny.correctAnswer || options[0]?.id], // Fallback
+                        options: options
                     };
                 } else {
                     return {
                         questionId: q.id,
                         type: "coding",
                         questionTitle: q.title,
-                        points: q.points,
-                        earnedPoints: Math.random() > 0.5 ? q.points : q.points / 2,
+                        points: q.marks,
+                        earnedPoints: Math.random() > 0.5 ? q.marks : q.marks / 2,
                         status: Math.random() > 0.5 ? "PASSED" : "PARTIAL",
                         submittedCode: `// User Solution for ${q.title}\nfunction solve() {\n  // Implementation details\n  return true;\n}`,
                         language: "javascript",
@@ -149,128 +156,128 @@ export default function SubmissionDetailPage() {
     return (
         <div className="flex-1 overflow-y-auto bg-background">
             <div className="container mx-auto p-8 space-y-8 pb-16">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Submission Detail</h1>
-                        <p className="text-mountain-meadow-600 font-medium">{data.userName} • {data.testName}</p>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground">Submission Detail</h1>
+                            <p className="text-mountain-meadow-600 font-medium">{data.userName} • {data.testName}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="text-lg py-1 px-4 font-mono bg-background">
+                            Score: {data.totalScore} / {data.maxScore}
+                        </Badge>
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/admin/users/${data.userId}`)}>
+                            <User className="mr-2 h-4 w-4" />
+                            Profile
+                        </Button>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-lg py-1 px-4 font-mono bg-background">
-                        Score: {data.totalScore} / {data.maxScore}
-                    </Badge>
-                    <Button variant="outline" size="sm" onClick={() => router.push(`/admin/users/${data.userId}`)}>
-                        <User className="mr-2 h-4 w-4" />
-                        Profile
-                    </Button>
-                </div>
-            </div>
 
-            <Separator className="bg-border/50" />
+                <Separator className="bg-border/50" />
 
-            {/* Summary Cards */}
-            <div className="grid gap-6 md:grid-cols-3">
-                <StatItem icon={<User className="h-4 w-4" />} label="Candidate" value={data.userName} />
-                <StatItem icon={<Trophy className="h-4 w-4" />} label="Total Score" value={`${data.totalScore} / ${data.maxScore}`} />
-                <StatItem icon={<Clock className="h-4 w-4" />} label="Submitted On" value={new Date(data.submittedAt).toLocaleString()} />
-            </div>
-
-            {/* Submissions List */}
-            <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-400">
-                        Questions & Responses
-                    </h2>
-                    <Badge variant="secondary" className="font-mono">{data.details.length} Items</Badge>
+                {/* Summary Cards */}
+                <div className="grid gap-6 md:grid-cols-3">
+                    <StatItem icon={<User className="h-4 w-4" />} label="Candidate" value={data.userName} />
+                    <StatItem icon={<Trophy className="h-4 w-4" />} label="Total Score" value={`${data.totalScore} / ${data.maxScore}`} />
+                    <StatItem icon={<Clock className="h-4 w-4" />} label="Submitted On" value={new Date(data.submittedAt).toLocaleString()} />
                 </div>
 
-                <div className="grid gap-6">
-                    {data.details.map((detail, idx) => (
-                        <div key={idx}>
-                            <Card className="overflow-hidden border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/40 transition-colors">
-                                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            {detail.type === "mcq" ? <HelpCircle className="h-4 w-4 text-blue-400" /> : <Code2 className="h-4 w-4 text-purple-400" />}
-                                            <CardTitle className="text-lg">{detail.questionTitle}</CardTitle>
-                                        </div>
-                                        <CardDescription>
-                                            Points Earned: <span className="font-mono font-medium text-foreground">{detail.earnedPoints}</span> / {detail.points}
-                                        </CardDescription>
-                                    </div>
-                                    <Badge variant={detail.status === "PASSED" ? "default" : detail.status === "FAILED" ? "destructive" : "secondary"}>
-                                        {detail.status}
-                                    </Badge>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    {detail.type === "mcq" ? (
-                                        <div className="grid gap-2">
-                                            {detail.options?.map((opt) => {
-                                                const isSelected = detail.selectedOptions?.includes(opt.id);
-                                                const isCorrect = detail.correctOptions?.includes(opt.id);
+                {/* Submissions List */}
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-400">
+                            Questions & Responses
+                        </h2>
+                        <Badge variant="secondary" className="font-mono">{data.details.length} Items</Badge>
+                    </div>
 
-                                                let appearance = "bg-muted/20 border-transparent text-muted-foreground";
-                                                if (isSelected && isCorrect) appearance = "bg-green-500/10 border-green-500/30 text-green-500";
-                                                else if (isSelected && !isCorrect) appearance = "bg-red-500/10 border-red-500/30 text-red-500";
-                                                else if (!isSelected && isCorrect) appearance = "bg-green-500/5 border-green-500/10 text-green-500/60";
-
-                                                return (
-                                                    <div
-                                                        key={opt.id}
-                                                        className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appearance}`}
-                                                    >
-                                                        <span className="text-sm font-medium">{opt.text}</span>
-                                                        <div className="flex gap-2">
-                                                            {isCorrect && <CheckCircle2 className="h-4 w-4" />}
-                                                            {isSelected && !isCorrect && <XCircle className="h-4 w-4" />}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            <div className="relative group">
-                                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Badge variant="secondary" className="font-mono text-[10px]">{detail.language}</Badge>
-                                                </div>
-                                                <div className="bg-zinc-950 rounded-xl p-5 font-mono text-sm overflow-x-auto border border-white/5 shadow-2xl">
-                                                    <pre className="text-zinc-300">
-                                                        <code>{detail.submittedCode}</code>
-                                                    </pre>
-                                                </div>
+                    <div className="grid gap-6">
+                        {data.details.map((detail, idx) => (
+                            <div key={idx}>
+                                <Card className="overflow-hidden border-border/50 bg-card/30 backdrop-blur-sm hover:bg-card/40 transition-colors">
+                                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                {detail.type === "mcq" ? <HelpCircle className="h-4 w-4 text-blue-400" /> : <Code2 className="h-4 w-4 text-purple-400" />}
+                                                <CardTitle className="text-lg">{detail.questionTitle}</CardTitle>
                                             </div>
+                                            <CardDescription>
+                                                Points Earned: <span className="font-mono font-medium text-foreground">{detail.earnedPoints}</span> / {detail.points}
+                                            </CardDescription>
+                                        </div>
+                                        <Badge variant={detail.status === "PASSED" ? "default" : detail.status === "FAILED" ? "destructive" : "secondary"}>
+                                            {detail.status}
+                                        </Badge>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        {detail.type === "mcq" ? (
+                                            <div className="grid gap-2">
+                                                {detail.options?.map((opt) => {
+                                                    const isSelected = detail.selectedOptions?.includes(opt.id);
+                                                    const isCorrect = detail.correctOptions?.includes(opt.id);
 
-                                            <div className="space-y-4 px-1 pt-2">
-                                                <h4 className="text-xs font-black uppercase tracking-[0.15em] text-foreground/80">Test Verification</h4>
-                                                <div className="flex flex-wrap gap-3">
-                                                    {detail.testCases?.map(tc => (
+                                                    let appearance = "bg-muted/20 border-transparent text-muted-foreground";
+                                                    if (isSelected && isCorrect) appearance = "bg-green-500/10 border-green-500/30 text-green-500";
+                                                    else if (isSelected && !isCorrect) appearance = "bg-red-500/10 border-red-500/30 text-red-500";
+                                                    else if (!isSelected && isCorrect) appearance = "bg-green-500/5 border-green-500/10 text-green-500/60";
+
+                                                    return (
                                                         <div
-                                                            key={tc.id}
-                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${tc.passed
-                                                                ? "bg-green-500/20 border-green-500/40 text-green-700 dark:text-green-400 shadow-lg shadow-green-500/20"
-                                                                : "bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-400 shadow-lg shadow-red-500/20"
-                                                                }`}
+                                                            key={opt.id}
+                                                            className={`p-4 rounded-xl border flex items-center justify-between transition-all ${appearance}`}
                                                         >
-                                                            {tc.passed ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                                                            <span className="font-bold">{tc.isHidden ? "Hidden" : "Visible"} Test #{tc.id}</span>
+                                                            <span className="text-sm font-medium">{opt.text}</span>
+                                                            <div className="flex gap-2">
+                                                                {isCorrect && <CheckCircle2 className="h-4 w-4" />}
+                                                                {isSelected && !isCorrect && <XCircle className="h-4 w-4" />}
+                                                            </div>
                                                         </div>
-                                                    ))}
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="relative group">
+                                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Badge variant="secondary" className="font-mono text-[10px]">{detail.language}</Badge>
+                                                    </div>
+                                                    <div className="bg-zinc-950 rounded-xl p-5 font-mono text-sm overflow-x-auto border border-white/5 shadow-2xl">
+                                                        <pre className="text-zinc-300">
+                                                            <code>{detail.submittedCode}</code>
+                                                        </pre>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4 px-1 pt-2">
+                                                    <h4 className="text-xs font-black uppercase tracking-[0.15em] text-foreground/80">Test Verification</h4>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {detail.testCases?.map(tc => (
+                                                            <div
+                                                                key={tc.id}
+                                                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${tc.passed
+                                                                    ? "bg-green-500/20 border-green-500/40 text-green-700 dark:text-green-400 shadow-lg shadow-green-500/20"
+                                                                    : "bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-400 shadow-lg shadow-red-500/20"
+                                                                    }`}
+                                                            >
+                                                                {tc.passed ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                                                                <span className="font-bold">{tc.isHidden ? "Hidden" : "Visible"} Test #{tc.id}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-                    ))}
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
             </div>
         </div>
     );

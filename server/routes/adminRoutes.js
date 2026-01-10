@@ -1,38 +1,36 @@
-const express = require('express');
-const { requireAuth, options } = require('../middlewares/authM');
+const express = require("express");
+const { requireAuth } = require("../middlewares/checkAuth");
 const {
-    createProblem,
-    updateProblem,
-    deleteQuestion,
-    getProblemDetail,
-    getAdminContests,
-    getAdminContestDetail,
-    createContest,
-    updateContest,
-    getAdminContestResults,
-    deleteContest,
-    getAdminStats
-} = require('../controllers/adminCon');
+  createProblem,
+  updateProblem,
+  deleteQuestion,
+  getProblemDetail,
+  getAdminContests,
+  getAdminContestDetail,
+  createContest,
+  updateContest,
+  getAdminContestResults,
+  deleteContest,
+  getAdminStats,
+} = require("../controllers/adminCon");
 
 const router = express.Router();
 
-router.get('/pgs', requireAuth({ options }), (req, res) => { res.send("I'm up") });
-
 // Questions
-router.post('/questions/create', requireAuth(options), createProblem);
-router.put('/questions/:id/edit', requireAuth(options), updateProblem);
-router.get('/questions/:id', requireAuth(options), getProblemDetail);
-router.delete('/questions/:id', requireAuth(options), deleteQuestion);
+router.post("/questions/create", requireAuth(), createProblem);
+router.put("/questions/:id/edit", requireAuth(), updateProblem);
+router.get("/questions/:id", requireAuth(), getProblemDetail);
+router.delete("/questions/:id", requireAuth(), deleteQuestion);
 
 // Contests
-router.get('/tests', requireAuth(options), getAdminContests);
-router.get('/tests/:id', requireAuth(options), getAdminContestDetail);
-router.post('/tests/create', requireAuth(options), createContest);
-router.put('/tests/:id/edit', requireAuth(options), updateContest);
-router.delete('/tests/:id', requireAuth(options), deleteContest);
-router.get('/tests/:id/result', requireAuth(options), getAdminContestResults);
+router.get("/tests", requireAuth(), getAdminContests);
+router.get("/tests/:id", requireAuth(), getAdminContestDetail);
+router.post("/tests/create", requireAuth(), createContest);
+router.put("/tests/:id/edit", requireAuth(), updateContest);
+router.delete("/tests/:id", requireAuth(), deleteContest);
+router.get("/tests/:id/result", requireAuth(), getAdminContestResults);
 
 // Dashboard Stats
-router.get('/stats', requireAuth(options), getAdminStats);
+router.get("/stats", requireAuth(), getAdminStats);
 
 module.exports = router;

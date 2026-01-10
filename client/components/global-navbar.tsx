@@ -4,10 +4,11 @@ import React, { Fragment } from "react";
 import Link from "next/link";
 import { ModeToggle } from "./theme-toggle";
 import { usePathname } from "next/navigation";
-import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 import { Button } from "./ui/button";
 import { LogIn } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
+import { UserButton } from "@/components/user-button";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -15,7 +16,9 @@ export default function Navbar() {
 
   const showNavbar = !hiddenPaths.some((path) => pathname.startsWith(path));
 
-  const { isLoaded } = useUser();
+  const { status } = useSession();
+  const isLoaded = status !== "loading";
+  const isAuthenticated = status === "authenticated";
 
   if (!showNavbar) return null;
 
@@ -42,10 +45,9 @@ export default function Navbar() {
               <Skeleton className="w-8 h-8 rounded-full bg-background" />
             ) : (
               <Fragment>
-                <SignedIn>
+                {isAuthenticated ? (
                   <UserButton />
-                </SignedIn>
-                <SignedOut>
+                ) : (
                   <Link href="/auth/login">
                     <Button
                       variant="ghost"
@@ -54,7 +56,7 @@ export default function Navbar() {
                       <LogIn size={16} />
                     </Button>
                   </Link>
-                </SignedOut>
+                )}
               </Fragment>
             )}
           </li>

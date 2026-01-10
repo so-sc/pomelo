@@ -1,17 +1,17 @@
 import React from "react";
 import HeroSection, { DashboardStats } from "@/components/admin/hero-section";
-import { cookies } from "next/headers";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 async function getAdminStats() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token");
+    const session = await auth();
+    const token = session?.backendToken;
 
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/stats`, {
       headers: {
-        Authorization: `Bearer ${token?.value}`,
+        Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
     });

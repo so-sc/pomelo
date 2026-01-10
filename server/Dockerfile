@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -20,4 +20,4 @@ WORKDIR /app/server
 
 EXPOSE 8080
 
-CMD ["pnpm", "start"]
+CMD ["pnpm", "dev"]

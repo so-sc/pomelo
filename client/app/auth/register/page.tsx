@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSignUp, useAuth } from "@clerk/nextjs";
+import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
 import { FaCheckCircle } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
@@ -14,6 +13,7 @@ import { RiLockPasswordFill } from "react-icons/ri";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
+import { register } from "@/app/actions/auth";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -25,14 +25,14 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { signUp, isLoaded } = useSignUp();
-  const { isSignedIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const error = searchParams.get("error");
-    if (error === "sso_failed") {
+    if (error === "OAuthAccountNotLinked") {
+      setSsoError("To confirm your identity, sign in with the same account you used originally.");
+    } else if (error) {
       setSsoError("Authentication failed. Please try again.");
     }
   }, [searchParams]);
@@ -73,68 +73,42 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm() || !isLoaded || isSignedIn) return;
+    if (!validateForm()) return;
 
     try {
       setLoading(true);
 
-      await signUp.create({
-        emailAddress: email,
-        password,
-      });
+      const formData = new FormData();
+      formData.append("name", email.split("@")[0]); // Default name
+      formData.append("email", email);
+      formData.append("password", password);
 
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      const result = await register(undefined, formData);
 
-      router.push("/auth/verify-email");
-    } catch (err: any) {
-      const errorCode = err?.errors?.[0]?.code;
-      const errorMessage =
-        err?.errors?.[0]?.message || err?.message || "Registration failed";
-
-      if (
-        errorCode === "form_identifier_exists" ||
-        errorMessage.includes("already exists")
-      ) {
-        toast.error(
-          "An account with this email already exists. Try logging in."
-        );
+      if (result === "success") {
+        toast.success("Account created! Redirecting to login...");
+        router.push("/auth/login");
       } else {
-        toast.error(errorMessage);
+        toast.error(result || "Registration failed");
       }
+
+    } catch (err: any) {
+      toast.error(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    if (!isLoaded || isSignedIn || isGoogleLoading) return;
+    if (isGoogleLoading) return;
 
     setIsGoogleLoading(true);
     setSsoError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      await signUp.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/auth/sso-callback?from=register",
-        redirectUrlComplete: "/",
-      });
+      await signIn("google", { callbackUrl: "/" });
     } catch (err: any) {
-      console.error("Google sign-up failed", err);
-      const errorMessage =
-        err.errors?.[0]?.message ||
-        err.message ||
-        "Failed to initiate Google sign-up";
-
-      if (errorMessage.includes("rate") || errorMessage.includes("limit")) {
-        setSsoError("Too many requests. Please wait a moment and try again.");
-      } else if (errorMessage.includes("oauth")) {
-        setSsoError("OAuth configuration error. Please contact support.");
-      } else {
-        setSsoError("Failed to initiate Google sign-up. Please try again.");
-      }
-
+      setSsoError("Failed to initiate Google sign-up. Please try again.");
       setIsGoogleLoading(false);
     }
   };
@@ -242,8 +216,6 @@ export default function RegisterPage() {
                   )}
                 </div>
               </div>
-
-              <div id="clerk-captcha"></div>
 
               <div className="flex flex-col gap-4">
                 <Button

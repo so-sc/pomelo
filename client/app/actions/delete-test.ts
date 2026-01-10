@@ -1,12 +1,12 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
 export async function deleteTestAction(id: string) {
     try {
-        const { getToken } = await auth();
-        const token = await getToken();
+        const session = await auth();
+        const token = session?.backendToken;
 
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/tests/${id}`;
 

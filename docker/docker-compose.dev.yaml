@@ -10,9 +10,13 @@ services:
     build:
       context: ..
       dockerfile: server/Dockerfile
+    volumes:
+      - ../server:/app/server
+      - /app/server/node_modules
     environment:
       - MONGODB_URI=mongodb://mongo:27017/scem-evMan
       - PORT=8080
+      - AUTH_SECRET=supersecret
     ports:
       - "8080:8080"
     depends_on:
@@ -23,6 +27,9 @@ services:
       context: ..
       dockerfile: server/Dockerfile
     command: node scripts/seed.js
+    volumes:  
+      - ../server:/app/server
+      - /app/server/node_modules
     environment:
       - MONGODB_URI=mongodb://mongo:27017/scem-evMan
     depends_on:

@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -14,17 +14,8 @@ interface QueryOptions {
 export const db = {
     find: async <T = any>(collection: Collection, filter: any = {}, options: QueryOptions = {}) => {
         try {
-            // TEMPORARY: Bypass Auth
-            // const { getToken } = await auth();
-            // const token = await getToken();
-            const token = "debug-token";
-
-            /*
-            if (!token) {
-                console.warn(`db.find: No auth token found. Skipping fetch to ${BASE_URL}/api/data`);
-                return []; // Or throw error
-            }
-            */
+            const session = await auth();
+            const token = session?.backendToken;
 
             const res = await fetch(`${BASE_URL}/api/data`, {
                 method: "POST",
@@ -61,10 +52,8 @@ export const db = {
 
     findOne: async <T = any>(collection: Collection, filter: any = {}, options: QueryOptions = {}) => {
         try {
-            // TEMPORARY: Bypass Auth
-            // const { getToken } = await auth();
-            // const token = await getToken();
-            const token = "debug-token";
+            const session = await auth();
+            const token = session?.backendToken;
 
             const res = await fetch(`${BASE_URL}/api/data/one`, {
                 method: "POST",

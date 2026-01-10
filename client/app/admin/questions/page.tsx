@@ -8,6 +8,7 @@ export default async function AdminQuestionsPage() {
   let questions: any[] = [];
   try {
       questions = await db.find("questions");
+      console.log(questions);
   } catch(e) {
       console.error(e);
   }

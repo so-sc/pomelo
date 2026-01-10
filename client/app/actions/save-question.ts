@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { questionSchema, type QuestionSchema } from "@/types/problem";
+import { auth } from "@/auth";
 
 const QUESTIONS_FILE = path.join(process.cwd(), "data", "questions.json");
 const STATS_FILE = path.join(process.cwd(), "data", "statistics.json");
@@ -11,8 +12,8 @@ const STATS_FILE = path.join(process.cwd(), "data", "statistics.json");
 export async function saveQuestion(_prevState: any, data: QuestionSchema) {
   try {
     const validatedData = questionSchema.parse(data);
-    const { getToken } = await auth();
-    const token = await getToken();
+    const session = await auth();
+    const token = session?.backendToken;
 
     console.log("Saving question:", validatedData);
 

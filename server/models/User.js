@@ -1,15 +1,19 @@
 const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
-  clerkId: {
+  email: {
     type: String,
     required: true,
     unique: true,
   },
-  email: String,
-  name: String,
-  role:{
+  passwordHash: {
     type: String,
-    default: "user"
+    required: true,
+  },
+  name: String,
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    default: "user",
   },
   registeredContests: [{
     type: mongoose.Schema.Types.ObjectId,

@@ -7,7 +7,7 @@ export default function TestLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const problemMeta = problems.map(({ id, type }) => ({ id, type }));
+  const problemMeta = problems.map(({ id, type }) => ({ id: Number(id), type }));
 
   return (
     <main className="w-screen h-screen pt-12">

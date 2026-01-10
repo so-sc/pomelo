@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Question = require('../models/Question');
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
+const bcrypt = require('bcryptjs');
 
 // Database connection
 const connectDB = async () => {
@@ -18,63 +19,29 @@ const connectDB = async () => {
   }
 };
 
-// Seed data for Users
+const hashPassword = (password) => bcrypt.hashSync(password, 10);
+
+// Seed data for Users (FIXED - DO NOT MODIFY)
 const users = [
   {
-    clerkId: 'user_admin_001',
     email: 'admin@example.com',
+    passwordHash: hashPassword('admin123'),
     name: 'Admin User',
     role: 'admin',
     registeredContests: [],
   },
   {
-    clerkId: 'user_student_001',
-    email: 'john.doe@student.com',
-    name: 'John Doe',
-    role: 'user',
-    registeredContests: [],
-  },
-  {
-    clerkId: 'user_student_002',
-    email: 'jane.smith@student.com',
-    name: 'Jane Smith',
-    role: 'user',
-    registeredContests: [],
-  },
-  {
-    clerkId: 'user_student_003',
-    email: 'bob.wilson@student.com',
-    name: 'Bob Wilson',
-    role: 'user',
-    registeredContests: [],
-  },
-  {
-    clerkId: 'user_student_004',
-    email: 'alice.johnson@student.com',
-    name: 'Alice Johnson',
-    role: 'user',
-    registeredContests: [],
-  },
-  // Edge case: User with very long name
-  {
-    clerkId: 'user_edge_001',
-    email: 'verylongname@example.com',
-    name: 'Christopher Alexander Montgomery Wellington-Smithson III',
-    role: 'user',
-    registeredContests: [],
-  },
-  // Edge case: User with minimal data
-  {
-    clerkId: 'user_minimal_001',
-    email: '',
-    name: '',
+    email: 'user@example.com',
+    passwordHash: hashPassword('user123'),
+    name: 'Regular User',
     role: 'user',
     registeredContests: [],
   },
 ];
 
-// Seed data for Questions - MCQ Questions
-const mcqQuestions = [
+// Seed data for Questions
+const questions = [
+  // MCQ Questions
   {
     type: 'mcq',
     title: 'What is the time complexity of binary search?',
@@ -83,7 +50,7 @@ const mcqQuestions = [
     marks: 10,
     questionType: 'Single Correct',
     options: ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'],
-    correctAnswer: '1', // Index of correct option
+    correctAnswer: '1',
   },
   {
     type: 'mcq',
@@ -93,11 +60,11 @@ const mcqQuestions = [
     marks: 15,
     questionType: 'Multiple Correct',
     options: ['Stack', 'Queue', 'Deque (when used as stack)', 'Linked List'],
-    correctAnswer: '0,2', // Multiple indices separated by comma
+    correctAnswer: '0,2',
   },
   {
     type: 'mcq',
-    title: 'What is the output of the following JavaScript code: console.log(typeof NaN)?',
+    title: 'What is the output of console.log(typeof NaN)?',
     description: 'Understanding JavaScript types and NaN behavior.',
     difficulty: 'Medium',
     marks: 10,
@@ -105,164 +72,19 @@ const mcqQuestions = [
     options: ['NaN', 'number', 'undefined', 'object'],
     correctAnswer: '1',
   },
-  {
-    type: 'mcq',
-    title: 'Which of the following are valid HTTP methods?',
-    description: 'Select all valid HTTP request methods.',
-    difficulty: 'Medium',
-    marks: 20,
-    questionType: 'Multiple Correct',
-    options: ['GET', 'POST', 'FETCH', 'PUT', 'DELETE', 'PATCH'],
-    correctAnswer: '0,1,3,4,5',
-  },
-  {
-    type: 'mcq',
-    title: 'What is the space complexity of merge sort?',
-    description: 'Analyze the space complexity of the merge sort algorithm.',
-    difficulty: 'Hard',
-    marks: 15,
-    questionType: 'Single Correct',
-    options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
-    correctAnswer: '2',
-  },
-  // Edge case: MCQ with very long options
-  {
-    type: 'mcq',
-    title: 'Which statement about database normalization is correct?',
-    description: 'Understanding database design principles.',
-    difficulty: 'Hard',
-    marks: 20,
-    questionType: 'Single Correct',
-    options: [
-      'First Normal Form (1NF) requires that all attributes contain only atomic values and each record needs to be unique, eliminating repeating groups',
-      'Second Normal Form (2NF) requires that the table is in 1NF and all non-key attributes are fully functionally dependent on the primary key',
-      'Third Normal Form (3NF) requires that the table is in 2NF and has no transitive dependencies between non-key attributes',
-      'All of the above statements are correct and describe different levels of database normalization',
-    ],
-    correctAnswer: '3',
-  },
-];
-
-// Seed data for Questions - Coding Questions
-const codingQuestions = [
+  // Coding Questions
   {
     type: 'coding',
     title: 'Two Sum',
-    description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
-
-You may assume that each input would have exactly one solution, and you may not use the same element twice.
-
-You can return the answer in any order.
-
-Example 1:
-Input: nums = [2,7,11,15], target = 9
-Output: [0,1]
-Explanation: Because nums[0] + nums[1] == 9, we return [0, 1].
-
-Example 2:
-Input: nums = [3,2,4], target = 6
-Output: [1,2]
-
-Example 3:
-Input: nums = [3,3], target = 6
-Output: [0,1]`,
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
     difficulty: 'Easy',
     marks: 30,
-    constraints:
-      '2 <= nums.length <= 10^4, -10^9 <= nums[i] <= 10^9, -10^9 <= target <= 10^9, Only one valid answer exists.',
-    inputFormat: 'First line contains n (size of array) and target\nSecond line contains n space-separated integers',
+    constraints: '2 <= nums.length <= 10^4',
+    inputFormat: 'First line contains n (size of array) and target. Second line contains n space-separated integers',
     outputFormat: 'Two space-separated integers representing the indices',
     boilerplateCode: {
-      cpp: `#include <iostream>
-#include <vector>
-using namespace std;
-
-vector<int> twoSum(vector<int>& nums, int target) {
-    // Write your code here
-    
-}
-
-int main() {
-    int n, target;
-    cin >> n >> target;
-    vector<int> nums(n);
-    for(int i = 0; i < n; i++) {
-        cin >> nums[i];
-    }
-    vector<int> result = twoSum(nums, target);
-    cout << result[0] << " " << result[1] << endl;
-    return 0;
-}`,
-      c: `#include <stdio.h>
-#include <stdlib.h>
-
-void twoSum(int* nums, int numsSize, int target, int* result) {
-    // Write your code here
-    
-}
-
-int main() {
-    int n, target;
-    scanf("%d %d", &n, &target);
-    int* nums = (int*)malloc(n * sizeof(int));
-    for(int i = 0; i < n; i++) {
-        scanf("%d", &nums[i]);
-    }
-    int result[2];
-    twoSum(nums, n, target, result);
-    printf("%d %d\\n", result[0], result[1]);
-    free(nums);
-    return 0;
-}`,
-      java: `import java.util.*;
-
-public class Solution {
-    public static int[] twoSum(int[] nums, int target) {
-        // Write your code here
-        
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        int target = sc.nextInt();
-        int[] nums = new int[n];
-        for(int i = 0; i < n; i++) {
-            nums[i] = sc.nextInt();
-        }
-        int[] result = twoSum(nums, target);
-        System.out.println(result[0] + " " + result[1]);
-    }
-}`,
-      python: `def twoSum(nums, target):
-    # Write your code here
-    pass
-
-if __name__ == "__main__":
-    n, target = map(int, input().split())
-    nums = list(map(int, input().split()))
-    result = twoSum(nums, target)
-    print(result[0], result[1])`,
-      javascript: `function twoSum(nums, target) {
-    // Write your code here
-    
-}
-
-const readline = require('readline');
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-let input = [];
-rl.on('line', (line) => {
-    input.push(line);
-}).on('close', () => {
-    const [n, target] = input[0].split(' ').map(Number);
-    const nums = input[1].split(' ').map(Number);
-    const result = twoSum(nums, target);
-    console.log(result[0] + ' ' + result[1]);
-});`,
+      python: `def twoSum(nums, target):\n    # Write your code here\n    pass\n\nif __name__ == "__main__":\n    n, target = map(int, input().split())\n    nums = list(map(int, input().split()))\n    result = twoSum(nums, target)\n    print(result[0], result[1])`,
+      javascript: `function twoSum(nums, target) {\n    // Write your code here\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({\n    input: process.stdin,\n    output: process.stdout\n});\n\nlet input = [];\nrl.on('line', (line) => {\n    input.push(line);\n}).on('close', () => {\n    const [n, target] = input[0].split(' ').map(Number);\n    const nums = input[1].split(' ').map(Number);\n    const result = twoSum(nums, target);\n    console.log(result[0] + ' ' + result[1]);\n});`,
     },
     testcases: [
       { input: '4 9\n2 7 11 15', output: '0 1' },
@@ -274,93 +96,14 @@ rl.on('line', (line) => {
   {
     type: 'coding',
     title: 'Palindrome Number',
-    description: `Given an integer x, return true if x is a palindrome, and false otherwise.
-
-Example 1:
-Input: x = 121
-Output: true
-Explanation: 121 reads as 121 from left to right and from right to left.
-
-Example 2:
-Input: x = -121
-Output: false
-Explanation: From left to right, it reads -121. From right to left, it becomes 121-. Therefore it is not a palindrome.
-
-Example 3:
-Input: x = 10
-Output: false
-Explanation: Reads 01 from right to left. Therefore it is not a palindrome.`,
+    description: 'Given an integer x, return true if x is a palindrome, and false otherwise.',
     difficulty: 'Easy',
     marks: 25,
-    constraints: `-2^31 <= x <= 2^31 - 1`,
+    constraints: '-2^31 <= x <= 2^31 - 1',
     inputFormat: 'A single integer x',
     outputFormat: 'true or false',
     boilerplateCode: {
-      cpp: `#include <iostream>
-using namespace std;
-
-bool isPalindrome(int x) {
-    // Write your code here
-    
-}
-
-int main() {
-    int x;
-    cin >> x;
-    cout << (isPalindrome(x) ? "true" : "false") << endl;
-    return 0;
-}`,
-      python: `def isPalindrome(x):
-    # Write your code here
-    pass
-
-if __name__ == "__main__":
-    x = int(input())
-    print("true" if isPalindrome(x) else "false")`,
-      java: `import java.util.*;
-
-public class Solution {
-    public static boolean isPalindrome(int x) {
-        // Write your code here
-        
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int x = sc.nextInt();
-        System.out.println(isPalindrome(x) ? "true" : "false");
-    }
-}`,
-      javascript: `function isPalindrome(x) {
-    // Write your code here
-    
-}
-
-const readline = require('readline');
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-rl.on('line', (line) => {
-    const x = parseInt(line);
-    console.log(isPalindrome(x) ? "true" : "false");
-    rl.close();
-});`,
-      c: `#include <stdio.h>
-#include <stdbool.h>
-
-bool isPalindrome(int x) {
-    // Write your code here
-    
-}
-
-int main() {
-    int x;
-    scanf("%d", &x);
-    printf("%s\\n", isPalindrome(x) ? "true" : "false");
-    return 0;
-}`,
+      python: `def isPalindrome(x):\n    # Write your code here\n    pass\n\nif __name__ == "__main__":\n    x = int(input())\n    print("true" if isPalindrome(x) else "false")`,
     },
     testcases: [
       { input: '121', output: 'true' },
@@ -829,11 +572,8 @@ const seedDatabase = async () => {
 
     // Clear existing data
     console.log('Clearing existing data...');
-    await User.deleteMany({});
-    await Question.deleteMany({});
-    await Contest.deleteMany({});
-    await Submission.deleteMany({});
-    console.log('Existing data cleared.');
+    await mongoose.connection.db.dropDatabase();
+    console.log('Database dropped.');
 
     // Seed Users
     console.log('Seeding users...');
@@ -842,279 +582,100 @@ const seedDatabase = async () => {
 
     // Get admin user for contest author
     const adminUser = createdUsers.find(u => u.role === 'admin');
-    const regularUsers = createdUsers.filter(u => u.role === 'user');
+    const regularUser = createdUsers.find(u => u.role === 'user');
 
     // Seed Questions
     console.log('Seeding questions...');
-    const createdQuestions = await Question.insertMany(allQuestions);
+    const createdQuestions = await Question.insertMany(questions);
     console.log(`${createdQuestions.length} questions created.`);
 
     // Categorize questions
-    const mcqQuestionIds = createdQuestions.filter(q => q.type === 'mcq').map(q => q._id.toString());
-    const codingQuestionIds = createdQuestions.filter(q => q.type === 'coding').map(q => q._id.toString());
-
-    // Update contests with question IDs and author
-    contests[0].questions = codingQuestionIds.slice(0, 2); // Beginner contest - easy coding
-    contests[0].author = adminUser.clerkId;
-
-    contests[1].questions = codingQuestionIds.slice(1, 4); // Data structures - medium coding
-    contests[1].author = adminUser.clerkId;
-
-    contests[2].questions = codingQuestionIds.slice(2); // Advanced - hard coding
-    contests[2].author = adminUser.clerkId;
-
-    contests[3].questions = mcqQuestionIds.slice(0, 4); // MCQ quiz
-    contests[3].author = adminUser.clerkId;
-
-    contests[4].questions = [...mcqQuestionIds.slice(0, 3), ...codingQuestionIds.slice(0, 2)]; // Mixed
-    contests[4].author = adminUser.clerkId;
-
-    contests[5].questions = codingQuestionIds.slice(0, 3); // Past contest
-    contests[5].author = adminUser.clerkId;
-
-    contests[6].questions = mcqQuestionIds.slice(0, 5); // Starting soon
-    contests[6].author = adminUser.clerkId;
-
-    contests[7].questions = [...codingQuestionIds.slice(0, 2), ...mcqQuestionIds.slice(0, 3)]; // Live Hackathon
-    contests[7].author = adminUser.clerkId;
-
-    contests[8].questions = codingQuestionIds; // Marathon
-    contests[8].author = adminUser.clerkId;
-
-    contests[9].questions = [...mcqQuestionIds.slice(0, 2), ...codingQuestionIds.slice(0, 1)]; // Internal
-    contests[9].author = adminUser.clerkId;
+    const mcqQuestions = createdQuestions.filter(q => q.type === 'mcq');
+    const codingQuestions = createdQuestions.filter(q => q.type === 'coding');
 
     // Seed Contests
     console.log('Seeding contests...');
+    const contests = [
+      {
+        title: 'Beginner Programming Contest',
+        description: 'A contest for beginners to test their basic programming skills.',
+        type: 'coding',
+        startTime: new Date('2026-02-01T10:00:00Z'),
+        endTime: new Date('2026-02-01T13:00:00Z'),
+        questions: codingQuestions.map(q => q._id.toString()),
+        author: adminUser._id.toString(),
+        rules: ['No plagiarism allowed', 'Time limit: 3 hours'],
+        visibility: 'public',
+        status: 'waiting',
+      },
+      {
+        title: 'Quick MCQ Quiz',
+        description: 'A rapid-fire MCQ quiz covering computer science fundamentals.',
+        type: 'mcq',
+        startTime: new Date('2026-01-25T11:00:00Z'),
+        endTime: new Date('2026-01-25T12:00:00Z'),
+        questions: mcqQuestions.map(q => q._id.toString()),
+        author: adminUser._id.toString(),
+        rules: ['Single attempt only', 'No negative marking'],
+        visibility: 'public',
+        status: 'waiting',
+      },
+    ];
+
     const createdContests = await Contest.insertMany(contests);
     console.log(`${createdContests.length} contests created.`);
 
-    // Update users with registered contests
+    // Update user with registered contests
     console.log('Updating user registrations...');
-    for (let i = 0; i < regularUsers.length; i++) {
-      const contestsToRegister = createdContests
-        .filter(c => c.visibility === 'public')
-        .slice(0, Math.min(i + 2, createdContests.length))
-        .map(c => c._id);
-
-      await User.findByIdAndUpdate(regularUsers[i]._id, {
-        registeredContests: contestsToRegister,
-      });
-    }
+    await User.findByIdAndUpdate(regularUser._id, {
+      registeredContests: createdContests.map(c => c._id),
+    });
     console.log('User registrations updated.');
 
-    // Seed some sample submissions
+    // Seed sample submissions
     console.log('Seeding submissions...');
-    const submissions = [];
-
-    // Submission 1: Complete submission with good score
-    submissions.push({
-      contest: createdContests[0]._id,
-      user: regularUsers[0]._id,
-      startedAt: new Date('2026-02-01T10:05:00Z'),
-      submittedAt: new Date('2026-02-01T12:30:00Z'),
-      totalScore: 55,
-      submissions: [
-        {
-          question: createdQuestions.find(q => q.title === 'Two Sum')._id,
-          answer: 'def twoSum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        if target - num in seen:\n            return [seen[target - num], i]\n        seen[num] = i',
-          language: 'python',
-          status: 'Accepted',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: '4 9\n2 7 11 15', expectedOutput: '0 1', actualOutput: '0 1' },
-            { testCase: 2, passed: true, input: '3 6\n3 2 4', expectedOutput: '1 2', actualOutput: '1 2' },
-            { testCase: 3, passed: true, input: '2 6\n3 3', expectedOutput: '0 1', actualOutput: '0 1' },
-            { testCase: 4, passed: true, input: '5 10\n1 5 3 7 9', expectedOutput: '1 3', actualOutput: '1 3' },
-          ],
-          executionTime: 45,
-          memoryUsed: 2048,
-          score: 30,
-          submittedAt: new Date('2026-02-01T11:00:00Z'),
-        },
-        {
-          question: createdQuestions.find(q => q.title === 'Palindrome Number')._id,
-          answer: 'def isPalindrome(x):\n    if x < 0:\n        return False\n    return str(x) == str(x)[::-1]',
-          language: 'python',
-          status: 'Accepted',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: '121', expectedOutput: 'true', actualOutput: 'true' },
-            { testCase: 2, passed: true, input: '-121', expectedOutput: 'false', actualOutput: 'false' },
-            { testCase: 3, passed: true, input: '10', expectedOutput: 'false', actualOutput: 'false' },
-            { testCase: 4, passed: true, input: '0', expectedOutput: 'true', actualOutput: 'true' },
-            { testCase: 5, passed: true, input: '12321', expectedOutput: 'true', actualOutput: 'true' },
-          ],
-          executionTime: 32,
-          memoryUsed: 1536,
-          score: 25,
-          submittedAt: new Date('2026-02-01T12:30:00Z'),
-        },
-      ],
-    });
-
-    // Submission 2: Partial success
-    submissions.push({
-      contest: createdContests[0]._id,
-      user: regularUsers[1]._id,
-      startedAt: new Date('2026-02-01T10:10:00Z'),
-      submittedAt: new Date('2026-02-01T12:45:00Z'),
-      totalScore: 30,
-      submissions: [
-        {
-          question: createdQuestions.find(q => q.title === 'Two Sum')._id,
-          answer: 'def twoSum(nums, target):\n    for i in range(len(nums)):\n        for j in range(i+1, len(nums)):\n            if nums[i] + nums[j] == target:\n                return [i, j]',
-          language: 'python',
-          status: 'Accepted',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: '4 9\n2 7 11 15', expectedOutput: '0 1', actualOutput: '0 1' },
-            { testCase: 2, passed: true, input: '3 6\n3 2 4', expectedOutput: '1 2', actualOutput: '1 2' },
-            { testCase: 3, passed: true, input: '2 6\n3 3', expectedOutput: '0 1', actualOutput: '0 1' },
-            { testCase: 4, passed: true, input: '5 10\n1 5 3 7 9', expectedOutput: '1 3', actualOutput: '1 3' },
-          ],
-          executionTime: 156,
-          memoryUsed: 1024,
-          score: 30,
-          submittedAt: new Date('2026-02-01T11:30:00Z'),
-        },
-        {
-          question: createdQuestions.find(q => q.title === 'Palindrome Number')._id,
-          answer: 'def isPalindrome(x):\n    return str(x) == str(x)[::-1]',
-          language: 'python',
-          status: 'Wrong Answer',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: '121', expectedOutput: 'true', actualOutput: 'true' },
-            { testCase: 2, passed: false, input: '-121', expectedOutput: 'false', actualOutput: 'true', error: 'Wrong output' },
-            { testCase: 3, passed: true, input: '10', expectedOutput: 'false', actualOutput: 'false' },
-            { testCase: 4, passed: true, input: '0', expectedOutput: 'true', actualOutput: 'true' },
-            { testCase: 5, passed: true, input: '12321', expectedOutput: 'true', actualOutput: 'true' },
-          ],
-          executionTime: 28,
-          memoryUsed: 1280,
-          score: 0,
-          submittedAt: new Date('2026-02-01T12:45:00Z'),
-        },
-      ],
-    });
-
-    // Submission 3: Runtime Error
-    submissions.push({
-      contest: createdContests[1]._id,
-      user: regularUsers[2]._id,
-      startedAt: new Date('2026-02-05T14:05:00Z'),
-      submittedAt: null, // Not submitted yet
-      totalScore: 0,
-      submissions: [
-        {
-          question: createdQuestions.find(q => q.title === 'Palindrome Number')._id,
-          answer: 'def isPalindrome(x):\n    return x == int(str(x)[::-1])',
-          language: 'python',
-          status: 'Runtime Error',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: '121', expectedOutput: 'true', actualOutput: 'true' },
-            { testCase: 2, passed: false, input: '-121', expectedOutput: 'false', actualOutput: '', error: 'ValueError: invalid literal for int()' },
-          ],
-          executionTime: 0,
-          memoryUsed: 1024,
-          score: 0,
-          submittedAt: new Date('2026-02-05T15:00:00Z'),
-        },
-      ],
-    });
-
-    // Submission 4: Time Limit Exceeded
-    submissions.push({
-      contest: createdContests[2]._id,
-      user: regularUsers[3]._id,
-      startedAt: new Date('2026-02-10T09:15:00Z'),
-      submittedAt: new Date('2026-02-10T13:45:00Z'),
-      totalScore: 0,
-      submissions: [
-        {
-          question: createdQuestions.find(q => q.title === 'Longest Substring Without Repeating Characters')._id,
-          answer: 'def lengthOfLongestSubstring(s):\n    max_len = 0\n    for i in range(len(s)):\n        for j in range(i, len(s)):\n            substr = s[i:j+1]\n            if len(substr) == len(set(substr)):\n                max_len = max(max_len, len(substr))\n    return max_len',
-          language: 'python',
-          status: 'Time Limit Exceeded',
-          testCaseResults: [
-            { testCase: 1, passed: true, input: 'abcabcbb', expectedOutput: '3', actualOutput: '3' },
-            { testCase: 2, passed: true, input: 'bbbbb', expectedOutput: '1', actualOutput: '1' },
-            { testCase: 3, passed: false, input: 'pwwkew', expectedOutput: '3', actualOutput: '', error: 'Time limit exceeded (>2000ms)' },
-          ],
-          executionTime: 2500,
-          memoryUsed: 3072,
-          score: 0,
-          submittedAt: new Date('2026-02-10T13:45:00Z'),
-        },
-      ],
-    });
-
-    // Submission 5: MCQ submission
-    submissions.push({
-      contest: createdContests[3]._id,
-      user: regularUsers[0]._id,
-      startedAt: new Date('2026-01-25T11:00:00Z'),
-      submittedAt: new Date('2026-01-25T11:45:00Z'),
-      totalScore: 45,
-      submissions: [
-        {
-          question: mcqQuestionIds[0],
-          answer: '1',
-          score: 10,
-          submittedAt: new Date('2026-01-25T11:05:00Z'),
-        },
-        {
-          question: mcqQuestionIds[1],
-          answer: '0,2',
-          score: 15,
-          submittedAt: new Date('2026-01-25T11:15:00Z'),
-        },
-        {
-          question: mcqQuestionIds[2],
-          answer: '1',
-          score: 10,
-          submittedAt: new Date('2026-01-25T11:25:00Z'),
-        },
-        {
-          question: mcqQuestionIds[3],
-          answer: '0,1,3,4', // Missing one correct answer
-          score: 10,
-          submittedAt: new Date('2026-01-25T11:35:00Z'),
-        },
-      ],
-    });
-
-    // Submission 6: Pending submission
-    submissions.push({
-      contest: createdContests[0]._id,
-      user: regularUsers[4]._id,
-      startedAt: new Date('2026-02-01T10:30:00Z'),
-      submittedAt: null,
-      totalScore: 0,
-      submissions: [
-        {
-          question: createdQuestions.find(q => q.title === 'Two Sum')._id,
-          answer: 'def twoSum(nums, target):\n    # Working on it...',
-          language: 'python',
-          status: 'Pending',
-          testCaseResults: [],
-          executionTime: 0,
-          memoryUsed: 0,
-          score: 0,
-          submittedAt: new Date('2026-02-01T10:35:00Z'),
-        },
-      ],
-    });
+    const submissions = [
+      {
+        contest: createdContests[0]._id,
+        user: regularUser._id,
+        startedAt: new Date('2026-02-01T10:05:00Z'),
+        submittedAt: new Date('2026-02-01T12:30:00Z'),
+        status: 'Completed',
+        totalScore: 30,
+        submissions: [
+          {
+            question: codingQuestions[0]._id,
+            answer: ['def twoSum(nums, target):\\n    seen = {}\\n    for i, num in enumerate(nums):\\n        if target - num in seen:\\n            return [seen[target - num], i]\\n        seen[num] = i'],
+            language: 'python',
+            status: 'Accepted',
+            testCaseResults: [
+              { testCase: 1, passed: true, input: '4 9\\n2 7 11 15', expectedOutput: '0 1', actualOutput: '0 1' },
+              { testCase: 2, passed: true, input: '3 6\\n3 2 4', expectedOutput: '1 2', actualOutput: '1 2' },
+            ],
+            executionTime: 45,
+            memoryUsed: 2048,
+            score: 30,
+            submittedAt: new Date('2026-02-01T11:00:00Z'),
+          },
+        ],
+      },
+    ];
 
     const createdSubmissions = await Submission.insertMany(submissions);
     console.log(`${createdSubmissions.length} submissions created.`);
 
-    console.log('\n✅ Database seeded successfully!');
-    console.log('\n📊 Summary:');
+    console.log('\\nDatabase seeded successfully!');
+    console.log('\\nSummary:');
     console.log(`   Users: ${createdUsers.length}`);
-    console.log(`   Questions: ${createdQuestions.length} (${mcqQuestionIds.length} MCQ, ${codingQuestionIds.length} Coding)`);
+    console.log(`   Questions: ${createdQuestions.length} (${mcqQuestions.length} MCQ, ${codingQuestions.length} Coding)`);
     console.log(`   Contests: ${createdContests.length}`);
     console.log(`   Submissions: ${createdSubmissions.length}`);
-    console.log('\n🔐 Admin credentials:');
-    console.log(`   Clerk ID: ${adminUser.clerkId}`);
+    console.log('\\nAdmin credentials:');
     console.log(`   Email: ${adminUser.email}`);
+    console.log(`   Password: admin123`);
+    console.log('\\nUser credentials:');
+    console.log(`   Email: ${regularUser.email}`);
+    console.log(`   Password: user123`);
 
   } catch (error) {
     console.error('Error seeding database:', error);
@@ -1126,7 +687,7 @@ const seedDatabase = async () => {
 connectDB().then(() => {
   seedDatabase()
     .then(() => {
-      console.log('\n✨ Seeding completed. Disconnecting...');
+      console.log('\\n✨ Seeding completed. Disconnecting...');
       mongoose.connection.close();
       process.exit(0);
     })

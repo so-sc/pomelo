@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Clock, AlertCircle, Calendar, Hourglass } from "lucide-react";
 
@@ -19,12 +19,14 @@ interface ContestDetails {
 export default function ContestLanding() {
   const { id } = useParams();
   const router = useRouter();
-  const { getToken } = useAuth();
+  
+  // Next-Auth Session Hook
+  const { data: session, status } = useSession();
+  
   const [details, setDetails] = useState<ContestDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<string>("");
 
-  // Function to calculate countdown
   const updateCountdown = useCallback((startTime: string) => {
     const start = new Date(startTime).getTime();
     const now = new Date().getTime();
@@ -32,7 +34,7 @@ export default function ContestLanding() {
 
     if (diff <= 0) {
       setTimeLeft("00:00:00");
-      return true; // Should enable button
+      return true;
     }
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -45,32 +47,37 @@ export default function ContestLanding() {
     return false;
   }, []);
 
- useEffect(() => {
-  const fetchInstructions = async () => {
-    try {
-      const token = await getToken();
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/test-access/${id}/landing`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json();
+  useEffect(() => {
+    const fetchInstructions = async () => {
+      
+      if (status !== "authenticated" || !session?.backendToken) return;
 
-      console.log("Full Backend Response:", result); // DEBUG: Check this in F12 Console
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/test-access/${id}/landing`, {
+          headers: { 
+            
+            "Authorization": `Bearer ${session.backendToken}`,
+            "Content-Type": "application/json"
+          },
+        });
+        
+        const result = await res.json();
 
-      if (result.success && result.data) {
-        setDetails(result.data);
-      } else {
-        toast.error(result.message || "Failed to fetch data");
+        if (result.success && result.data) {
+          setDetails(result.data);
+        } else {
+          toast.error(result.message || "Failed to fetch data");
+        }
+      } catch (err) {
+        console.error("Fetch Error:", err);
+        toast.error("Failed to load instructions");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Fetch Error:", err);
-      toast.error("Failed to load instructions");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  if (id) fetchInstructions();
-}, [id, getToken]);
+    if (id && status === "authenticated") fetchInstructions();
+  }, [id, session, status]);
 
   // Handle live countdown interval
   useEffect(() => {
@@ -89,25 +96,25 @@ export default function ContestLanding() {
 
   const handleStart = () => {
     toast.success("Good luck!");
-    router.push(`/test/${id}/session`); // Next step in the flow
+    router.push(`/test/${id}/session`); 
   };
 
-  if (loading) return (
+  // Loading state for both Auth and Data
+  if (status === "loading" || loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      <p className="text-muted-foreground animate-pulse">Fetching Rules...</p>
+      <p className="text-muted-foreground animate-pulse">Initializing Session & Fetching Rules...</p>
     </div>
   );
 
   return (
     <main className="p-6 md:p-10 max-w-4xl mx-auto space-y-8">
-      {/* Header Section */}
+      {/* ... (UI layout remains the same) ... */}
       <div className="space-y-2 text-center md:text-left">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">{details?.title}</h1>
         <p className="text-xl text-muted-foreground">{details?.description}</p>
       </div>
 
-      {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex items-center p-4 bg-secondary/50 rounded-lg border">
           <Calendar className="mr-3 text-primary" />
@@ -128,13 +135,12 @@ export default function ContestLanding() {
           <div>
             <p className="text-xs uppercase font-bold text-muted-foreground">Local Start Time</p>
             <p className="font-semibold text-primary">
-               {details ? new Date(details.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                {details ? new Date(details.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Instructions */}
       <div className="bg-card p-8 rounded-2xl border shadow-sm space-y-6">
         <div className="flex items-center space-x-2 text-xl font-bold border-b pb-4">
           <AlertCircle className="text-yellow-500" />
@@ -152,7 +158,6 @@ export default function ContestLanding() {
         </ul>
       </div>
 
-      {/* Action Button & Countdown */}
       <div className="space-y-4">
         {!details?.canStart && (
           <div className="text-center space-y-1">
@@ -164,7 +169,7 @@ export default function ContestLanding() {
         <button 
           onClick={handleStart}
           disabled={!details?.canStart}
-          className="w-full py-5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl font-bold text-2xl transition-all shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:grayscale disabled:hover:scale-100"
+          className="w-full py-5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl font-bold text-2xl transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
         >
           {details?.canStart ? "Start Assessment" : "Entry Locked"}
         </button>

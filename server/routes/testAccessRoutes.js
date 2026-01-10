@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+// Use the new protect middleware we discussed
 const { protect } = require('../middlewares/contestAuth'); 
+
 const { 
     validateJoinId, 
-    getLandingDetails      // Import this too
+    getLandingDetails 
 } = require('../controllers/testAccessController');
 
 const {
@@ -11,17 +13,18 @@ const {
     startTest
 } = require('../controllers/contestCon');
 
-// 1. Validation (6-digit ID)
+// --- ROUTES ---
+
+// Validation (6-digit ID)
 router.post('/validate', protect, validateJoinId);
 
-// 2. Landing Page Metadata
+// Landing Page Metadata
 router.get('/:id/landing', protect, getLandingDetails);
 
-// 3. START the test (Creates the session)
+// START the test (Creates the session)
 router.post('/start', protect, startTest);
 
-// 4. Fetch Questions for the Session
-// This matches: GET /api/test-access/data?contestId=...
+// Fetch Questions for the Session
 router.get('/data', protect, getContestData);
 
 module.exports = router;

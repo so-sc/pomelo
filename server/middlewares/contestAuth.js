@@ -1,61 +1,60 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
+const { jwtVerify } = require('jose');
 
-
-
+//IDENTITY CHECK (protect) Verifies the Next-Auth badge (JWT)//
 const protect = async (req, res, next) => {
-  try {
-    const clerkId = req.auth.userId; // Provided by Clerk middleware
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
 
-    if (!clerkId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
+        if (!token) {
+            console.log("DEBUG: No token found in headers");
+            return res.status(401).json({ success: false, message: "Not authorized, no token" });
+        }
 
-    // 1. Try to find the user in your DB
-    let user = await User.findOne({ clerkId });
+        
+        if (!process.env.AUTH_SECRET) {
+            console.error("DEBUG: AUTH_SECRET is missing in Backend .env!");
+        }
 
-    // 2. If the user doesn't exist, create a profile for them immediately
-    if (!user) {
-      console.log("User not found in DB, creating profile for:", clerkId);
-      user = await User.create({
-        clerkId: clerkId,
-        name: "Student", // You can update this later with webhooks
-        email: "",       // You can update this later
-        role: "user",
-        registeredContests: []
-      });
-    }
-
+        const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
+        console.log("BACKEND_SECRET_CHECK:", process.env.AUTH_SECRET);
     
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error("Auth Middleware Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
+         console.log("RECEIVED_TOKEN:", token);
+        
+        const { payload } = await jwtVerify(token, secret);
+        
+        console.log("DEBUG: Token Verified! Payload:", payload);
+        req.user = payload; 
+        next();
+    } catch (error) {
+        console.error("DEBUG: JWT Verification Failed Error:", error.message);
+        return res.status(401).json({ success: false, message: "Token failed or expired" });
+    }
 };
-
-/**
- * 2. PERMISSION CHECK (isContestActive)
- * Validates timing, registration, and violation limits.
- */
+//PERMISSION CHECK (isContestActive)
 const isContestActive = async (req, res, next) => {
     try {
         const contestId = req.params.id || req.body.contestId;
-        const clerkId = req.clerkId; // Set by the protect middleware above
+        
+        
+        const userId = req.user?.userId; 
 
         if (!contestId) {
             return res.status(400).json({ success: false, message: 'Contest ID is required' });
         }
 
-        // Fetch data from MongoDB
+        // Fetching data from MongoDB using the internal MongoDB ID
         const [contest, user] = await Promise.all([
             Contest.findById(contestId),
-            User.findOne({ clerkId })
+            User.findById(userId) // findById(userId) 
         ]);
 
         if (!contest) return res.status(404).json({ success: false, message: 'Contest not found' });
-        /*if (!user) return res.status(404).json({ success: false, message: 'User profile not found' });*/
+        if (!user) return res.status(404).json({ success: false, message: 'User profile not found' });
 
         const now = new Date();
         const end = new Date(contest.endTime);
@@ -78,20 +77,13 @@ const isContestActive = async (req, res, next) => {
             }
         }
 
-        // Logic Check C: Private Access Check
-        if (contest.visibility === 'public' && !user.registeredContests?.includes(contestId)) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'This is a private contest. Registration required.' 
-            });
-        }
-
-        // Pass the fetched data to the next function to save a DB query
+        // Pass the updated objects to the controller
         req.contest = contest;
-        req.user = user;
-        
+        req.userProfile = user; // Renamed to avoid confusion with req.user (token)
+
         next();
     } catch (error) {
+        console.error("Permission Error:", error.message);
         res.status(500).json({ success: false, message: 'Security check failed', error: error.message });
     }
 };

@@ -2,16 +2,17 @@
 
 import React from "react";
 import { Button } from "../ui/button";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function HeroSection() {
-  const { isSignedIn } = useAuth();
+  const { status } = useSession();
+  const isSignedIn = status === "authenticated";
   const router = useRouter();
 
   const handleJoinClick = () => {
     if (!isSignedIn) {
-      router.push("/auth/register");
+      router.push("/auth/login");
     } else {
       router.push("/join");
     }
