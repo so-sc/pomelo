@@ -330,8 +330,39 @@ const updateContest = async (req, res) => {
 // @desc Get contest results
 const getAdminContestResults = async (req, res) => {
     try {
-        // Placeholder for results logic
-        res.status(200).json({ success: true, results: { participants: { total: 0, active: 0 } } });
+        await connectDB();
+        const { id } = req.params;
+
+        // Step 1 & 2: Fetch contest by ID
+        const contest = await Contest.findById(id);
+        if (!contest) {
+            return res.status(404).json({ success: false, error: 'Contest not found' });
+        }
+
+        // Step 3: Check if contest has started
+        const now = new Date();
+        if (now < new Date(contest.startTime)) {
+            return res.status(403).json({ success: false, error: 'Contest has not started yet' });
+        }
+
+        // Step 4: Query submissions with population
+        const submissions = await Submission.find({ contest: id })
+            .populate('user', 'name email')
+            .populate('submissions.question', 'title marks questionType difficulty')
+            .sort({ totalScore: -1 }) // Step 5: Sort by score descending (leaderboard)
+            .lean();
+
+        // Step 6: Return response
+        res.status(200).json({ 
+            success: true,
+            contest: {
+                _id: contest._id,
+                title: contest.title,
+                startTime: contest.startTime,
+                endTime: contest.endTime
+            },
+            results: submissions // Empty array if no submissions
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
