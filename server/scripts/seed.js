@@ -180,28 +180,22 @@ const seedDatabase = async () => {
       {
         title: 'Beginner Programming Contest',
         description: 'A contest for beginners to test their basic programming skills.',
-        type: 'coding',
         joinId: '123456',
         startTime: new Date(now.getTime() - 60 * 60 * 1000), // Started 1 hour ago
         endTime: new Date(now.getTime() + 2 * 60 * 60 * 1000), // Ends in 2 hours
         questions: codingQuestions.map(q => q._id.toString()),
         author: adminUser._id.toString(),
         rules: ['No plagiarism allowed', 'Time limit: 3 hours'],
-        visibility: 'public',
-        visibility: 'public',
       },
       {
         title: 'Quick MCQ Quiz',
         description: 'A rapid-fire MCQ quiz covering computer science fundamentals.',
-        type: 'mcq',
-        joinId: '654321', // Added joinId
+        joinId: '654321',
         startTime: new Date(now.getTime() - 30 * 60 * 1000), // Started 30 minutes ago
         endTime: new Date(now.getTime() + 30 * 60 * 1000), // Ends in 30 minutes
         questions: mcqQuestions.map(q => q._id.toString()),
         author: adminUser._id.toString(),
         rules: ['Single attempt only', 'No negative marking'],
-        visibility: 'public',
-        visibility: 'public',
       },
     ];
 

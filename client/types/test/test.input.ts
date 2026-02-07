@@ -14,7 +14,6 @@ export const testSchema = z.object({
   startsAt: z.iso.datetime(),
   problems: z.array(z.string()),
   rules: z.array(z.string()).default([]),
-  status: z.enum(["waiting", "ongoing", "completed"]).optional(),
 });
 
 export type TestSchema = z.infer<typeof testSchema>;

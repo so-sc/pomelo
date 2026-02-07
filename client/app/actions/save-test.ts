@@ -25,9 +25,6 @@ export async function saveTest(_prevState: Record<string, unknown>, data: TestSc
       },
       problemIds: validatedData.problems,
       rules: validatedData.rules,
-      type: "classic",
-      visibility: "public",
-      status: validatedData.status,
       author: "Admin"
     };
 

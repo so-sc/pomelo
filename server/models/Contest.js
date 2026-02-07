@@ -5,10 +5,7 @@ const contestSchema = new mongoose.Schema({
     required: true,
   },
   description: String,
-  type: {
-    type: String,
-    required: true,
-  },
+
   joinId: {
     type: String,
     unique: true,
@@ -22,9 +19,7 @@ const contestSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
-  duration: {
-    type: Number,
-  },
+
   questions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Question'
@@ -37,11 +32,7 @@ const contestSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
-  visibility: {
-    type: String,
-    enum: ['public', 'private'],
-    default: 'private',
-  },
+
 }, { timestamps: true });
 
 module.exports = mongoose.models.Contest || mongoose.model('Contest', contestSchema);

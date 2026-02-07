@@ -1,0 +1,2 @@
+title,description,difficulty,marks,constraints,inputFormat,outputFormat,functionName,inputVariables,testcases
+Two Sum,Return indices of two numbers that add up to target.,Easy,30,2 <= nums.length <= 10^4,First line: n and target. Second line: n integers,Two space-separated indices,twoSum,"[{""variable"":""nums"",""type"":""int_array""},{""variable"":""target"",""type"":""int""}]","[{""input"":""4 9\n2 7 11 15"",""output"":""0 1""}]"

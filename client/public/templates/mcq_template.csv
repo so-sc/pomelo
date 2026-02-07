@@ -1,0 +1,2 @@
+title,description,difficulty,marks,questionType,options,correctAnswer
+What is the time complexity of binary search?,Binary search finds position in sorted array.,Easy,10,Single Correct,"[""O(n)"",""O(log n)"",""O(n log n)"",""O(1)""]",1
