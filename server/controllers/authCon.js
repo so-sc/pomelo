@@ -3,6 +3,7 @@ const User = require('../models/User');
 
 const handleLogin = async (req, res) => {
     try {
+        const { SignJWT } = await import('jose');
         const { email, password } = req.body;
 
         if (!email || !password) {
@@ -19,8 +20,21 @@ const handleLogin = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        // Generate JWT token
+        const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
+        const token = await new SignJWT({
+            userId: user._id.toString(),
+            email: user.email,
+            role: user.role
+        })
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime('7d')
+            .sign(secret);
+
         res.json({
             success: true,
+            token,
             user: {
                 _id: user._id,
                 email: user.email,
@@ -30,13 +44,15 @@ const handleLogin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Login error:', error.message);
+        console.error('Full error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 }
 
 const handleRegister = async (req, res) => {
     try {
+        const { SignJWT } = await import('jose');
         const { name, email, password } = req.body;
 
         if (!name || !email || !password) {
@@ -60,9 +76,22 @@ const handleRegister = async (req, res) => {
 
         await newUser.save();
 
+        // Generate JWT token
+        const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
+        const token = await new SignJWT({
+            userId: newUser._id.toString(),
+            email: newUser.email,
+            role: newUser.role
+        })
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime('7d')
+            .sign(secret);
+
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
+            token,
             user: {
                 _id: newUser._id,
                 email: newUser.email,

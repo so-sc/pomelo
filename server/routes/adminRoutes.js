@@ -1,6 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const { requireAuth } = require("../middlewares/checkAuth");
+const isAdmin = require("../middlewares/isAdmin");
 const {
   createProblem,
   updateProblem,
@@ -46,7 +47,7 @@ router.get("/tests/:id", requireAuth(), getAdminContestDetail);
 router.post("/tests/create", requireAuth(), createContest);
 router.put("/tests/:id/edit", requireAuth(), updateContest);
 router.delete("/tests/:id", requireAuth(), deleteContest);
-router.get("/tests/:id/result", requireAuth(), getAdminContestResults);
+router.get("/tests/:id/result", requireAuth(), isAdmin, getAdminContestResults);
 
 // Dashboard Stats
 router.get("/stats", requireAuth(), getAdminStats);
