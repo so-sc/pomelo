@@ -276,6 +276,15 @@ const createContest = async (req, res) => {
         const startTime = new Date(duration.start);
         const endTime = new Date(duration.end);
 
+        if (endTime <= startTime) {
+            return res.status(400).json({ success: false, error: 'End time must be after start time' });
+        }
+
+        const now = new Date();
+        const buffer = 5 * 60 * 1000; // 5 minute buffer
+        if (startTime < new Date(now.getTime() - buffer)) {
+            return res.status(400).json({ success: false, error: 'Start time cannot be in the past' });
+        }
 
         // Generate Unique 6-digit Join ID
         let joinId;
@@ -312,6 +321,15 @@ const updateContest = async (req, res) => {
         if (duration) {
             updates.startTime = new Date(duration.start);
             updates.endTime = new Date(duration.end);
+
+            if (updates.endTime <= updates.startTime) {
+                return res.status(400).json({ success: false, error: 'End time must be after start time' });
+            }
+
+            const now = new Date();
+            if (updates.endTime <= now) {
+                return res.status(400).json({ success: false, error: 'End time must be in the future' });
+            }
         }
         if (problemIds) {
             updates.questions = problemIds;
@@ -352,7 +370,7 @@ const getAdminContestResults = async (req, res) => {
             .lean();
 
         // Step 6: Return response
-        res.status(200).json({ 
+        res.status(200).json({
             success: true,
             contest: {
                 _id: contest._id,
