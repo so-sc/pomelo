@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -13,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 const MAX_VIOLATIONS = 3;
+const VIOLATION_DEBOUNCE_MS = 500;
 const STORAGE_PREFIX = "pomelo:attempt-integrity";
 
 type ViolationKind =
@@ -212,4 +214,194 @@ export default function AttemptIntegrityProvider({
     },
     [clearPendingViolation, router, session?.backendToken, testId]
   );
+
+  const registerViolation = useCallback(
+    (kind: ViolationKind) => {
+      if (submitInFlightRef.current || warningRef.current) {
+        return;
+      }
+
+      clearPendingViolation();
+
+      const nextCount = violationCountRef.current + 1;
+      violationCountRef.current = nextCount;
+      setViolationCount(nextCount);
+      persistViolationCount(nextCount, kind);
+
+      if (kind === "screenshot_attempt") {
+        setIsObscured(true);
+      }
+
+      if (nextCount >= MAX_VIOLATIONS) {
+        setWarning({
+          kind,
+          count: nextCount,
+          title: "Violation Limit Reached",
+          message: "This exam is being submitted automatically.",
+          critical: true,
+        });
+        void submitExam({
+          forced: true,
+          autoSubmitReason: "VIOLATION_LIMIT_REACHED",
+        });
+        return;
+      }
+
+      setNeedsFullscreen(true);
+      setWarning({
+        kind,
+        count: nextCount,
+        title: VIOLATION_COPY[kind].title,
+        message: VIOLATION_COPY[kind].message,
+      });
+    },
+    [clearPendingViolation, persistViolationCount, submitExam]
+  );
+
+  const scheduleTransientViolation = useCallback(
+    (kind: ViolationKind) => {
+      if (submitInFlightRef.current || warningRef.current) {
+        return;
+      }
+
+      clearPendingViolation();
+      pendingViolationTimerRef.current = setTimeout(() => {
+        pendingViolationTimerRef.current = null;
+        registerViolation(kind);
+      }, VIOLATION_DEBOUNCE_MS);
+    },
+    [clearPendingViolation, registerViolation]
+  );
+
+  const handleResume = useCallback(async () => {
+    const enteredFullscreen = await requestExamFullscreen();
+    if (!enteredFullscreen) {
+      return;
+    }
+
+    setWarning(null);
+    setNeedsFullscreen(false);
+    setIsObscured(false);
+  }, [requestExamFullscreen]);
+
+  useEffect(() => {
+    warningRef.current = warning;
+  }, [warning]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedCount = Number.parseInt(
+      window.localStorage.getItem(getStorageKey(testId, "violation-count")) || "0",
+      10
+    );
+
+    if (!Number.isNaN(storedCount) && storedCount > 0) {
+      violationCountRef.current = storedCount;
+      setViolationCount(storedCount);
+    }
+  }, [testId]);
+
+  useEffect(() => {
+    if (violationCountRef.current >= MAX_VIOLATIONS && session?.backendToken && !submitInFlightRef.current) {
+      void submitExam({
+        forced: true,
+        autoSubmitReason: "VIOLATION_LIMIT_REACHED",
+      });
+    }
+  }, [session?.backendToken, submitExam]);
+
+  useEffect(() => {
+    void requestExamFullscreen(false).then((entered) => {
+      if (!entered) {
+        setWarning({
+          kind: "fullscreen_required",
+          count: violationCountRef.current,
+          title: "Fullscreen Required",
+          message: "Enter fullscreen mode before continuing the exam.",
+        });
+      }
+    });
+  }, [requestExamFullscreen]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        scheduleTransientViolation("focus_switch");
+      } else {
+        clearPendingViolation();
+      }
+    };
+
+    const handleBlur = () => {
+      scheduleTransientViolation("focus_switch");
+    };
+
+    const handleFocus = () => {
+      clearPendingViolation();
+    };
+
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        setNeedsFullscreen(false);
+        return;
+      }
+
+      if (!submitInFlightRef.current) {
+        registerViolation("fullscreen_exit");
+      }
+    };
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const isModifierPressed = event.ctrlKey || event.metaKey;
+
+      if (isModifierPressed && ["c", "v", "x"].includes(key)) {
+        event.preventDefault();
+      }
+
+      if (isModifierPressed && event.shiftKey && ["i", "j", "c"].includes(key)) {
+        event.preventDefault();
+      }
+
+      if (key === "f12") {
+        event.preventDefault();
+      }
+
+      if (event.altKey && key === "tab") {
+        event.preventDefault();
+        scheduleTransientViolation("focus_switch");
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "PrintScreen" || event.keyCode === 44) {
+        setIsObscured(true);
+        registerViolation("screenshot_attempt");
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keyup", handleKeyUp, true);
+
+    return () => {
+      clearPendingViolation();
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("keyup", handleKeyUp, true);
+    };
+  }, [clearPendingViolation, registerViolation, scheduleTransientViolation]);
 }
