@@ -5,13 +5,26 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const MAX_VIOLATIONS = 3;
 const VIOLATION_DEBOUNCE_MS = 500;
@@ -86,7 +99,8 @@ export function useAttemptIntegrity() {
 }
 
 export default function AttemptIntegrityProvider({
-  testId
+  testId,
+  children,
 }: {
   testId: string;
   children: ReactNode;
@@ -404,4 +418,103 @@ export default function AttemptIntegrityProvider({
       document.removeEventListener("keyup", handleKeyUp, true);
     };
   }, [clearPendingViolation, registerViolation, scheduleTransientViolation]);
+
+  const contextValue = useMemo<AttemptIntegrityContextValue>(
+    () => ({
+      isSubmitting,
+      violationCount,
+      submitExam,
+    }),
+    [isSubmitting, submitExam, violationCount]
+  );
+
+  const activeWarning =
+    warning ||
+    (needsFullscreen
+      ? {
+          kind: "fullscreen_required" as const,
+          count: violationCount,
+          title: "Fullscreen Required",
+          message: "Return to fullscreen mode to keep the exam active.",
+        }
+      : null);
+
+  return (
+    <AttemptIntegrityContext.Provider value={contextValue}>
+      <div className="relative h-full w-full">
+        <div
+          className={cn(
+            "h-full w-full transition duration-200",
+            (activeWarning || isSubmitting) && "pointer-events-none select-none",
+            isObscured && "blur-2xl opacity-20"
+          )}
+        >
+          {children}
+        </div>
+
+        {(activeWarning || isSubmitting) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+            <Card className="w-full max-w-md border-border bg-card shadow-lg">
+              <CardHeader className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-foreground">
+                    {isSubmitting ? (
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    ) : (
+                      <ShieldAlert className="h-5 w-5 text-destructive" />
+                    )}
+                    <CardTitle>{isSubmitting ? "Submitting Exam" : activeWarning?.title}</CardTitle>
+                  </div>
+                  {!isSubmitting && (activeWarning?.count || 0) > 0 && (
+                    <Badge variant={activeWarning?.critical ? "destructive" : "secondary"}>
+                      Strike {Math.min(activeWarning?.count || 0, MAX_VIOLATIONS)}/{MAX_VIOLATIONS}
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription>
+                  {isSubmitting
+                    ? "Please wait while the exam is finalized."
+                    : activeWarning?.message}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {!isSubmitting && (
+                  <>
+                    {!activeWarning?.critical && (activeWarning?.count || 0) > 0 && (
+                      <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                        Further violations will auto-submit the exam immediately.
+                      </div>
+                    )}
+                    {activeWarning?.critical ? (
+                      <Button
+                        className="w-full"
+                        onClick={() =>
+                          void submitExam({
+                            forced: true,
+                            autoSubmitReason: "VIOLATION_LIMIT_REACHED",
+                          })
+                        }
+                      >
+                        Retry Submission
+                      </Button>
+                    ) : (
+                      <Button className="w-full" onClick={() => void handleResume()}>
+                        Return to Fullscreen
+                      </Button>
+                    )}
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <p>
+                        The exam remains locked until you acknowledge this warning and resume in fullscreen mode.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    </AttemptIntegrityContext.Provider>
+  );
 }
