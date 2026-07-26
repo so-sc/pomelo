@@ -20,4 +20,7 @@ const connectDB = async () => {
   }
 };
 
-module.exports = { connectDB };
+// readyState 1 === connected. Used by the /health endpoint and the container healthcheck.
+const isConnected = () => mongoose.connection.readyState === 1;
+
+module.exports = { connectDB, isConnected };

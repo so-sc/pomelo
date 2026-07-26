@@ -129,7 +129,7 @@ if [[ "$ACTION" == "uninstall" ]]; then
   # Teardown Docker containers
   if command -v docker &>/dev/null && [[ -f "$APP_ROOT/app/docker/app/docker-compose.yaml" ]]; then
     log_info "Stopping Docker containers and removing ephemeral volumes..."
-    docker compose --project-name pomelo \
+    POMELO_ROOT="$APP_ROOT" docker compose --project-name pomelo \
       -f "$APP_ROOT/app/docker/app/docker-compose.yaml" \
       -f "$APP_ROOT/app/docker/judge0/docker-compose.yaml" \
       down -v >/dev/null 2>&1 || true
@@ -539,6 +539,7 @@ elif [[ -f "$APP_ROOT/app/admin/bin/pomelod" ]]; then
   # Fallback: start daemon directly (non-persistent)
   log_warn "systemd unavailable — starting daemon in background (non-persistent)."
   export POMELO_ROOT="$APP_ROOT"
+  export NODE_ENV=production
   "$APP_ROOT/app/admin/bin/pomelod" --daemon --root "$APP_ROOT"
 
   sleep 1

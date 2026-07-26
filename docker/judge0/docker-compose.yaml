@@ -9,9 +9,9 @@ services:
     image: officialsosc/judge0:latest
     profiles: ["internal-judge0"]
     volumes:
-      - /opt/pomelo/config/judge0.conf:/judge0.conf:ro
+      - ${POMELO_ROOT:-/opt/pomelo}/config/judge0.conf:/judge0.conf:ro
     env_file:
-      - /opt/pomelo/config/judge0.conf
+      - ${POMELO_ROOT:-/opt/pomelo}/config/judge0.conf
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -27,9 +27,9 @@ services:
     command: ["./scripts/workers"]
     profiles: ["internal-judge0"]
     volumes:
-      - /opt/pomelo/config/judge0.conf:/judge0.conf:ro
+      - ${POMELO_ROOT:-/opt/pomelo}/config/judge0.conf:/judge0.conf:ro
     env_file:
-      - /opt/pomelo/config/judge0.conf
+      - ${POMELO_ROOT:-/opt/pomelo}/config/judge0.conf
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -44,7 +44,7 @@ services:
     image: postgres:16.2
     profiles: ["internal-judge0"]
     env_file:
-      - /opt/pomelo/config/judge0.conf
+      - ${POMELO_ROOT:-/opt/pomelo}/config/judge0.conf
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:

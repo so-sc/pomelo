@@ -22,31 +22,40 @@ cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Review the `.env` files and populate any required variables (e.g., `AUTH_SECRET`).
+All three are required:
 
-### Step 2: Start Infrastructure Dependencies
+- **`.env`** (root) — read by Docker Compose. Supplies `POSTGRES_PASSWORD` and
+  `REDIS_PASSWORD` to the Judge0 stack; without it those services start with empty
+  credentials and fail to authenticate.
+- **`server/.env`** — needs `MONGODB_URI` (the API exits on boot without it) and
+  `AUTH_SECRET` (authenticated requests return HTTP 500 without it).
+- **`client/.env`** — needs `BACKEND_URL=http://localhost:8080`. The built-in default is
+  `http://server:8080`, a Docker-network name that does not resolve when the client runs
+  on the host.
 
-Start the MongoDB database and Judge0 execution environment using Docker Compose from the root directory.
+Set `AUTH_SECRET` to the **same** value in `server/.env` and `client/.env`; the client
+signs session tokens and the server verifies them with that key. Generate one with
+`openssl rand -hex 32`.
 
-```bash
-docker compose --project-name pomelo \
-  --env-file .env \
-  -f docker/app/docker-compose.dev.yaml \
-  -f docker/judge0/docker-compose.dev.yaml \
-  --project-directory . \
-  up mongo judge0-server judge0-workers seed -d
-```
+### Step 2: Start the Application
 
-### Step 3: Start the Application
-
-Install the monorepo dependencies and start the development servers.
+Install the monorepo dependencies and start everything.
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The client will typically be available at `http://localhost:3000` and the server at `http://localhost:8080`.
+`pnpm dev` brings up the infrastructure containers (MongoDB, Judge0 server and workers)
+via Docker Compose, builds `@pomelo/code-gen`, then runs the client and server on the
+host. It tears the containers back down when you exit.
+
+The client will typically be available at `http://localhost:3000` and the server at
+`http://localhost:8080`. Verify the API with:
+
+```bash
+curl localhost:8080/health
+```
 
 ## Pull Request Process
 

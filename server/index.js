@@ -7,7 +7,7 @@ const app = express();
 // Trust proxy for express-rate-limit (essential in production behind LB/proxy)
 app.set("trust proxy", 1);
 
-const { connectDB } = require("./helpers/dbCon");
+const { connectDB, isConnected } = require("./helpers/dbCon");
 
 // const compRoutes = require("./routes/compilerRoutes");
 const contestRoutes = require("./routes/contestRoutes");
@@ -32,6 +32,16 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.json({
     message: "Pomelo API online"
+  });
+});
+
+// Readiness probe — used by the container healthcheck and by Caddy's depends_on gate.
+app.get("/health", (req, res) => {
+  const db = isConnected();
+  res.status(db ? 200 : 503).json({
+    status: db ? "ok" : "degraded",
+    db: db ? "up" : "down",
+    uptime: Math.round(process.uptime()),
   });
 });
 

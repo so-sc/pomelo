@@ -64,6 +64,9 @@ export class ComposeCommand {
 
     const env: Record<string, string> = {
       ...process.env as Record<string, string>,
+      // Bind mounts in the compose files resolve against this. It must be the
+      // install root we were actually started with, not the /opt/pomelo default.
+      POMELO_ROOT: paths.root,
       DOMAIN: domain,
       PROTOCOL: protocol,
       CADDY_HTTP_PORT: String(caddyHttp),
@@ -113,6 +116,7 @@ export class ComposeCommand {
 
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
+      POMELO_ROOT: paths.root,
       // Activate ALL profiles during teardown so that previously active
       // internal containers get properly stopped/removed.
       COMPOSE_PROFILES: "internal-db,internal-judge0",
