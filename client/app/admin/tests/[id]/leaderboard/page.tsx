@@ -8,11 +8,15 @@ import { LeaderboardTable } from "@/components/admin/test/leaderboard-table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getBaseUrl } from "@/lib/env";
+import { Pagination } from "@/components/admin/pagination";
 
 export const dynamic = "force-dynamic";
 
+const LEADERBOARD_PAGE_SIZE = 25;
+
 interface LeaderboardPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 interface LeaderboardData {
@@ -20,7 +24,10 @@ interface LeaderboardData {
   title: string;
   endTime: string;
   totalParticipants: number;
+  topScore: number;
   maxScore: number;
+  page: number;
+  limit: number;
   leaderboard: {
     rank: number;
     name: string;
@@ -34,17 +41,20 @@ type LeaderboardResult =
   | { success: false; status: number; data?: never }
   | { success: true; status: number; data: LeaderboardData };
 
-async function getLeaderboardData(id: string): Promise<LeaderboardResult> {
+async function getLeaderboardData(id: string, page: number): Promise<LeaderboardResult> {
   const session = await auth();
   const token = session?.backendToken;
 
   if (!token) return { success: false, status: 401 };
 
   try {
-    const res = await fetch(`${getBaseUrl()}/api/test/${id}/leaderboard`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${getBaseUrl()}/api/test/${id}/leaderboard?page=${page}&limit=${LEADERBOARD_PAGE_SIZE}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }
+    );
 
     if (res.status === 403) return { success: false as const, status: 403 };
     if (res.status === 404) return { success: false as const, status: 404 };
@@ -60,9 +70,10 @@ async function getLeaderboardData(id: string): Promise<LeaderboardResult> {
   }
 }
 
-export default async function AdminLeaderboardPage({ params }: LeaderboardPageProps) {
+export default async function AdminLeaderboardPage({ params, searchParams }: LeaderboardPageProps) {
   const { id } = await params;
-  const result = await getLeaderboardData(id);
+  const page = Math.max(1, Number((await searchParams).page) || 1);
+  const result = await getLeaderboardData(id, page);
 
   if (result.status === 404) return notFound();
 
@@ -126,7 +137,7 @@ export default async function AdminLeaderboardPage({ params }: LeaderboardPagePr
                 />
                 <AdvancedStatCard
                   label="Highest Score"
-                  value={`${result.data.leaderboard.length > 0 ? result.data.leaderboard[0].totalScore : 0} / ${result.data.maxScore || 0}`}
+                  value={`${result.data.topScore ?? 0} / ${result.data.maxScore || 0}`}
                   icon={<Award className="h-5 w-5" />}
                   description="Top performer index"
                 />
@@ -138,11 +149,16 @@ export default async function AdminLeaderboardPage({ params }: LeaderboardPagePr
                 <div className="flex items-center gap-3">
                   <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground">Final Standings</h2>
                   <Badge variant="secondary" className="rounded-full px-3 py-0">
-                    {result.data.leaderboard.length} ranked
+                    {result.data.totalParticipants} ranked
                   </Badge>
                 </div>
               </div>
               <LeaderboardTable data={result.data.leaderboard} maxScore={result.data.maxScore || 0} />
+              <Pagination
+                page={page}
+                total={result.data.totalParticipants}
+                pageSize={LEADERBOARD_PAGE_SIZE}
+              />
             </section>
           </div>
         ) : (

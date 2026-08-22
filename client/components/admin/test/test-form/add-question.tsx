@@ -10,14 +10,7 @@ import {
 import { Plus, Settings } from "lucide-react";
 import QuestionCard from "../../question/question-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { QuestionFilterBar } from "../../question/question-filter-bar";
 import { useFormContext } from "react-hook-form";
 import { BaseProblem } from "@/types/problem/problem.types";
 
@@ -35,7 +28,7 @@ export default function QuestionAddCard({ availableQuestions = [] }: QuestionAdd
     return availableQuestions.filter((problem) => {
       const matchesSearch =
         problem.title.toLowerCase().includes(term) ||
-        problem.description.toLowerCase().includes(term);
+        (problem.description || "").toLowerCase().includes(term);
       const matchesType =
         !typeFilter ||
         typeFilter === "all" ||
@@ -74,35 +67,16 @@ export default function QuestionAddCard({ availableQuestions = [] }: QuestionAdd
         <CardDescription>Add questions to test</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Input
-            placeholder="Search questions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-input border-border flex-1"
-          />
-          <Select onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Filter by Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="mcq">MCQ</SelectItem>
-              <SelectItem value="coding">Coding</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select onValueChange={setDifficultyFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Filter by Difficulty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="easy">Easy</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="hard">Hard</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <QuestionFilterBar
+          search={searchTerm}
+          type={typeFilter}
+          difficulty={difficultyFilter}
+          onChange={(patch) => {
+            if (patch.search !== undefined) setSearchTerm(patch.search);
+            if (patch.type !== undefined) setTypeFilter(patch.type);
+            if (patch.difficulty !== undefined) setDifficultyFilter(patch.difficulty);
+          }}
+        />
 
         <ScrollArea className="h-[52vh] pr-4">
           {filteredProblems.length === 0 ? (

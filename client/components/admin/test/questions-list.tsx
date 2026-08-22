@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Settings } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { BaseProblem } from "@/types/problem/problem.types";
 import QuestionCard from "../question/question-card";
 
@@ -55,11 +56,15 @@ export default function TestQuestions({ questions, availableQuestions = [] }: Te
             <p className="text-sm">Get started</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredProblems.map((problem, index) => (
-              <QuestionCard key={`${problem._id || problem.id}-${index}`} problem={problem} hideActions={true} />
-            ))}
-          </div>
+          // Capped like the picker in add-question.tsx, so a long question list
+          // scrolls inside the card instead of stretching the page.
+          <ScrollArea className="h-[52vh] pr-4">
+            <div className="space-y-4">
+              {filteredProblems.map((problem, index) => (
+                <QuestionCard key={`${problem._id || problem.id}-${index}`} problem={problem} hideActions={true} />
+              ))}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>

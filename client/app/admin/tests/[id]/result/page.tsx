@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { fetchBackend } from "@/lib/fetch";
 import {
     ArrowLeft,
     Users,
@@ -21,6 +21,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LocalTime } from "@/components/ui/local-time";
 import ExportResultsButtons from "@/components/admin/test/export-results-buttons";
+import { Pagination } from "@/components/admin/pagination";
+
+const RESULTS_PAGE_SIZE = 25;
 
 /* ---------- Types ---------- */
 interface Participant {
@@ -43,13 +46,6 @@ interface TestResult {
     };
 }
 
-interface MongoContest {
-    _id: string;
-    title: string;
-    description: string;
-    questions?: { marks?: number }[];
-}
-
 interface MongoUser {
     _id: string;
     name: string;
@@ -62,25 +58,39 @@ interface MongoSubmission {
     submittedAt: string;
 }
 
+interface ResultsResponse {
+    success: boolean;
+    contest: {
+        _id: string;
+        title: string;
+        description: string;
+        maxScore: number;
+    };
+    results: MongoSubmission[];
+    total: number;
+    averageScore: number;
+}
 
-export default async function AdminTestResultPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminTestResultPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<Record<string, string | undefined>>;
+}) {
     const { id } = await params;
+    const page = Math.max(1, Number((await searchParams).page) || 1);
 
-    // Fetch contest details
-    const contest = await db.findOne<MongoContest>('contests', { _id: id }, { populate: 'questions' });
-    if (!contest) {
+    const response: ResultsResponse = await fetchBackend(
+        `/api/admin/tests/${id}/result?page=${page}&limit=${RESULTS_PAGE_SIZE}`
+    );
+    if (!response?.success) {
         return notFound();
     }
 
-    // Fetch submissions with populated user
-    const submissions = await db.find<MongoSubmission>('submissions',
-        { contest: id, status: 'Completed' },
-        { populate: 'user' }
-    );
+    const { contest, results, total, averageScore } = response;
 
-    // Transform Data
-    // Transform Data
-    const participants: Participant[] = submissions
+    const participants: Participant[] = results
         .filter(sub => sub && sub.user) // Filter out corrupt data
         .map(sub => ({
             userId: sub.user?._id || 'unknown',
@@ -90,22 +100,16 @@ export default async function AdminTestResultPage({ params }: { params: Promise<
             submittedAt: sub.submittedAt
         }));
 
-    // Calculate Stats
-    const totalParticipants = participants.length;
-    const averageScore = totalParticipants > 0
-        ? participants.reduce((acc, p) => acc + p.score, 0) / totalParticipants
-        : 0;
-    const maxScore = (contest.questions || []).reduce((sum: number, q: { marks?: number }) => sum + (q.marks || 0), 0);
-
+    // Stats now cover the whole result set, not just this page.
     const data: TestResult = {
         id: contest._id,
         testName: contest.title,
         description: contest.description,
         participants,
         stats: {
-            totalParticipants,
+            totalParticipants: total,
             averageScore,
-            maxScore
+            maxScore: contest.maxScore
         }
     };
 
@@ -160,7 +164,7 @@ export default async function AdminTestResultPage({ params }: { params: Promise<
                         <div className="flex items-center gap-3">
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground">Student Submissions</h2>
                             <Badge variant="secondary" className="rounded-full px-3 py-0">
-                                {data.participants.length} total
+                                {data.stats.totalParticipants} total
                             </Badge>
                         </div>
                     </div>
@@ -229,6 +233,8 @@ export default async function AdminTestResultPage({ params }: { params: Promise<
                             </TableBody>
                         </Table>
                     </Card>
+
+                    <Pagination page={page} total={total} pageSize={RESULTS_PAGE_SIZE} />
                 </section>
             </div>
         </div>

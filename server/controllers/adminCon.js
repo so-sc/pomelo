@@ -11,6 +11,8 @@ const {
   processImportJSON,
 } = require("../utils/questionsIO");
 const { invalidate } = require("../utils/simpleCache");
+const { escapeRegex } = require("../utils/escapeRegex");
+const { findQuestionsInOrder } = require("../utils/findQuestionsInOrder");
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const toNumber = (value) => {
@@ -287,13 +289,57 @@ const deleteQuestion = async (req, res, next) => {
 
 // --- Contests ---
 
+// Status is derived from the stored field OR the time window (see the summary
+// mapping below), so filtering by it needs the equivalent Mongo predicate rather
+// than a plain field match. `status` has no schema default, and $nin matches
+// documents where the field is absent.
+const ENDED_STATUSES = ['completed', 'ended'];
+const statusQuery = (status, now) => ({
+    completed: { $or: [{ status: { $in: ENDED_STATUSES } }, { status: { $nin: ENDED_STATUSES }, endTime: { $lt: now } }] },
+    ongoing: { status: { $nin: ENDED_STATUSES }, startTime: { $lte: now }, endTime: { $gte: now } },
+    waiting: { status: { $nin: ENDED_STATUSES }, startTime: { $gt: now } },
+}[status]);
+
 // @desc Get all contests for admin dashboard
 const getAdminContests = async (req, res, next) => {
     try {
         await connectDB();
-        // Return summary fields
-        const contests = await Contest.find().select('title description createdAt questions author startTime endTime durationMinutes joinId status');
         const now = new Date();
+
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
+        const skip = (page - 1) * limit;
+
+        const filter = {};
+        const statusFilter = statusQuery(req.query.status, now);
+        if (statusFilter) Object.assign(filter, statusFilter);
+
+        const term = (req.query.q || '').trim().slice(0, 100);
+        if (term) {
+            const rx = { $regex: escapeRegex(term), $options: 'i' };
+            // $and, because a 'completed' status filter already occupies $or.
+            filter.$and = [{ $or: [{ title: rx }, { description: rx }] }];
+        }
+
+        const { from, to } = req.query;
+        if (from || to) {
+            // Spread, so an ongoing/waiting filter's startTime bound survives.
+            filter.startTime = {
+                ...(filter.startTime || {}),
+                ...(from && { $gte: new Date(from) }),
+                ...(to && { $lte: new Date(`${to}T23:59:59.999Z`) }),
+            };
+        }
+
+        // Return summary fields
+        const [contests, total] = await Promise.all([
+            Contest.find(filter)
+                .select('title description createdAt questions author startTime endTime durationMinutes joinId status')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Contest.countDocuments(filter),
+        ]);
 
         // One grouped query instead of one Submission.find() per contest.
         const submissionCounts = await Submission.aggregate([
@@ -359,7 +405,7 @@ const getAdminContests = async (req, res, next) => {
             };
         });
 
-        res.status(200).json({ success: true, contests: summary });
+        res.status(200).json({ success: true, contests: summary, total, page, limit });
     } catch (error) {
         next(error);
     }
@@ -372,8 +418,9 @@ const getAdminContestDetail = async (req, res, next) => {
         const contest = await Contest.findById(req.params.id);
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
-        // Populate questions manually since they are strings
-        const questions = await Question.find({ _id: { $in: contest.questions } });
+        // Populate questions manually since they are strings, keeping the
+        // contest's own ordering.
+        const questions = await findQuestionsInOrder(contest.questions);
 
         const contestWithQuestions = contest.toObject();
         contestWithQuestions.questions = questions;
@@ -614,35 +661,64 @@ const getAdminContestResults = async (req, res, next) => {
         await connectDB();
         const { id } = req.params;
 
-        // Step 1 & 2: Fetch contest by ID
-        const contest = await Contest.findById(id);
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+        const skip = (page - 1) * limit;
+
+        const contest = await Contest.findById(id).populate('questions', 'marks');
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }
 
-        // Step 3: Check if contest has started
-        const now = new Date();
-        if (now < new Date(contest.startTime)) {
-            return res.status(403).json({ success: false, error: 'Contest has not started yet' });
-        }
+        const match = { contest: contest._id, status: 'Completed' };
 
-        // Step 4: Query submissions with population
-        const submissions = await Submission.find({ contest: id })
-            .populate('user', 'name email')
-            .populate('submissions.question', 'title marks questionType difficulty')
-            .sort({ totalScore: -1 }) // Step 5: Sort by score descending (leaderboard)
-            .lean();
+        // One round trip for the page of rows plus whole-set stats. The $project
+        // drops each submission's embedded answers/testCaseResults, which is the
+        // bulk of the document and is never rendered in the results table.
+        const [facet] = await Submission.aggregate([
+            { $match: match },
+            {
+                $facet: {
+                    rows: [
+                        // _id breaks ties, otherwise equal scores can repeat or skip across pages.
+                        { $sort: { totalScore: -1, submittedAt: 1, _id: 1 } },
+                        { $skip: skip },
+                        { $limit: limit },
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'user',
+                                foreignField: '_id',
+                                as: 'user',
+                                pipeline: [{ $project: { name: 1, email: 1 } }],
+                            },
+                        },
+                        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+                        { $project: { user: 1, totalScore: 1, submittedAt: 1 } },
+                    ],
+                    meta: [{ $group: { _id: null, total: { $sum: 1 }, avg: { $avg: '$totalScore' } } }],
+                },
+            },
+        ]);
 
-        // Step 6: Return response
+        const { total = 0, avg = 0 } = facet?.meta?.[0] || {};
+        const maxScore = (contest.questions || []).reduce((sum, q) => sum + (q.marks || 0), 0);
+
         res.status(200).json({
             success: true,
             contest: {
                 _id: contest._id,
                 title: contest.title,
+                description: contest.description,
                 startTime: contest.startTime,
-                endTime: contest.endTime
+                endTime: contest.endTime,
+                maxScore,
             },
-            results: submissions // Empty array if no submissions
+            results: facet?.rows || [],
+            total,
+            averageScore: avg || 0,
+            page,
+            limit,
         });
     } catch (error) {
         next(error);
@@ -891,6 +967,7 @@ module.exports = {
     getAdminStats,
     importQuestions,
     exportQuestion,
-    getAdminSubmissionDetail
+    getAdminSubmissionDetail,
+    _statusQuery: statusQuery, // exported for tests/adminContests.test.js
 };
 

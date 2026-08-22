@@ -1,8 +1,12 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
-const Question = require('../models/Question');
 const { toProblemView } = require('../utils/toProblemView');
 const { getOrSet } = require('../utils/simpleCache');
+const { findQuestionsInOrder } = require('../utils/findQuestionsInOrder');
+
+// Stands in for "no submittedAt" so Ongoing entries sort last, matching the
+// Infinity the old in-memory comparator used.
+const LEADERBOARD_SORT_SENTINEL = new Date('9999-12-31T23:59:59.999Z');
 
 // @desc    Validate 6-digit Join ID (OTP)
 // @route   POST /api/contest/validate
@@ -138,9 +142,10 @@ const getContestData = async (req, res, next) => {
     try {
         const contest = req.contest;
 
-        const questions = await getOrSet(`contest-questions:${contest._id}`, () => Question.find({
-            _id: { $in: contest.questions }
-        }).lean());
+        // Order matters: problems[0] is where the attempt starts, and next/prev
+        // navigation walks this array.
+        const questions = await getOrSet(`contest-questions:${contest._id}`,
+            () => findQuestionsInOrder(contest.questions, { lean: true }));
 
         // Fetch User Submission to get saved state
         const Submission = require('../models/Submissions');
@@ -272,24 +277,42 @@ const getLeaderboard = async (req, res, next) => {
 
         const Submission = require('../models/Submissions');
 
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+        const skip = (page - 1) * limit;
+
         // Include both Completed and Ongoing submissions — participants whose time
         // expired without clicking "End Test" still have valid scores.
-        const submissions = await Submission.find({ contest: contest._id })
-            .select('user totalScore submittedAt status')
-            .populate('user', 'name') // name only — no email for privacy
-            .lean();
+        const [totalParticipants, topEntry, rows] = await Promise.all([
+            Submission.countDocuments({ contest: contest._id }),
+            // Whole-set high score: reading it off page 1's first row would be wrong on page 2+.
+            Submission.findOne({ contest: contest._id }).sort({ totalScore: -1 }).select('totalScore').lean(),
+            Submission.aggregate([
+                { $match: { contest: contest._id } },
+                // Ongoing entries have no submittedAt. Mongo sorts missing values FIRST
+                // ascending, so substitute a sentinel to keep them last, as before.
+                { $addFields: { _sortTime: { $ifNull: ['$submittedAt', LEADERBOARD_SORT_SENTINEL] } } },
+                // _id last: without a unique tiebreak, rows tied on score and time can
+                // repeat on one page and vanish from another.
+                { $sort: { totalScore: -1, _sortTime: 1, _id: 1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'user',
+                        foreignField: '_id',
+                        as: 'user',
+                        pipeline: [{ $project: { name: 1 } }], // name only — no email for privacy
+                    },
+                },
+                { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+                { $project: { totalScore: 1, submittedAt: 1, status: 1, 'user.name': 1 } },
+            ]),
+        ]);
 
-        // Sort: highest totalScore first; ties broken by earliest submittedAt
-        // (Ongoing entries won't have submittedAt, so push them to the bottom of ties)
-        submissions.sort((a, b) => {
-            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-            const aTime = a.submittedAt ? new Date(a.submittedAt).getTime() : Infinity;
-            const bTime = b.submittedAt ? new Date(b.submittedAt).getTime() : Infinity;
-            return aTime - bTime;
-        });
-
-        const leaderboard = submissions.map((sub, idx) => ({
-            rank: idx + 1,
+        const leaderboard = rows.map((sub, idx) => ({
+            rank: skip + idx + 1,
             name: sub.user ? sub.user.name || 'Anonymous' : 'Anonymous',
             totalScore: sub.totalScore ?? 0,
             submittedAt: sub.submittedAt || null,
@@ -302,9 +325,12 @@ const getLeaderboard = async (req, res, next) => {
                 contestId: contest._id,
                 title: contest.title,
                 endTime: contest.endTime,
-                totalParticipants: leaderboard.length,
+                totalParticipants,
+                topScore: topEntry?.totalScore ?? 0,
                 maxScore: (contest.questions || []).reduce((sum, q) => sum + (q.marks || 0), 0),
-                leaderboard
+                leaderboard,
+                page,
+                limit
             }
         });
     } catch (error) {

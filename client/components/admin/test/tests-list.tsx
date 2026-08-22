@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { Input } from "@/components/ui/input";
+import React from "react";
 import { TestHeader } from "@/components/admin/test/header";
 import { TestCard } from "@/components/admin/test/test-card";
 import { EmptyState } from "@/components/admin/empty-placeholder";
+import { TestFilterBar } from "@/components/admin/test/test-filter-bar";
+import { Pagination } from "@/components/admin/pagination";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 
 export interface MongoTestContent {
   id?: string;
@@ -29,13 +32,22 @@ export interface MongoTestContent {
 
 interface Props {
   initialTests: MongoTestContent[];
+  total: number;
+  page: number;
+  search: string;
+  status: string;
+  from: string;
+  to: string;
 }
 
-export function TestsList({ initialTests }: Props) {
-  const [searchTerm, setSearchTerm] = useState("");
+const PAGE_SIZE = 12;
 
-  // Map mongo objects to the shape TestCard expects.
-  const tests = [...initialTests].reverse().map(t => {
+export function TestsList({ initialTests, total, page, search, status, from, to }: Props) {
+  const { pending } = useFilterParams();
+
+  // Map mongo objects to the shape TestCard expects. Order comes from the
+  // server (createdAt desc) — reversing here would only reverse one page.
+  const tests = initialTests.map(t => {
     const totalMinutes = t.durationMinutes || 0;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -64,41 +76,34 @@ export function TestsList({ initialTests }: Props) {
     };
   });
 
-  const filteredTests = tests.filter(
-    (test) =>
-      test.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      test.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const isFiltered = Boolean(search || status || from || to);
 
   return (
     <div className="h-full w-full overflow-y-scroll">
       <div className="max-w-none w-full p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
         <TestHeader />
 
-        <div className="max-w-full sm:max-w-lg">
-          <Input
-            placeholder="Search tests..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-input border-border"
-          />
-        </div>
+        <TestFilterBar search={search} status={status} from={from} to={to} />
 
-        {filteredTests.length > 0 ? (
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-            {filteredTests.map((test) => (
-              <TestCard key={test.id} test={test} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            searchTerm={searchTerm}
-            title="No tests found"
-            entityName="test"
-            createUrl="/admin/tests/new/edit"
-            createLabel="Create Your First Test"
-          />
-        )}
+        <div className={cn("space-y-6", pending && "opacity-60 transition-opacity")}>
+          {tests.length > 0 ? (
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+              {tests.map((test) => (
+                <TestCard key={test.id} test={test} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              searchTerm={isFiltered ? search || "filter" : ""}
+              title="No tests found"
+              entityName="test"
+              createUrl="/admin/tests/new/edit"
+              createLabel="Create Your First Test"
+            />
+          )}
+
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
+        </div>
       </div>
     </div>
   );
