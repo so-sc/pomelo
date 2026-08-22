@@ -1,6 +1,9 @@
 const Submission = require("../models/Submissions");
 const Question = require("../models/Question");
 const Contest = require("../models/Contest");
+const { getOrSet } = require("../utils/simpleCache");
+
+const getQuestionCached = (questionId) => getOrSet(`question:${questionId}`, () => Question.findById(questionId).lean());
 const { languageIds } = require("../utils/languages");
 const { getJudge, serializeValues, validateValues } = require("@pomelo/code-gen");
 
@@ -366,7 +369,7 @@ const runCode = async (req, res, next) => {
             return res.status(404).json({ success: false, error: "Contest not found" });
         }
 
-        const question = await Question.findById(questionId);
+        const question = await getQuestionCached(questionId);
         if (!question) return res.status(404).json({ success: false, error: "Question not found" });
 
         if (!questionBelongsToContest(contest, questionId)) {
@@ -437,7 +440,7 @@ const submitCode = async (req, res, next) => {
             return res.status(404).json({ error: "Contest not found" });
         }
 
-        const question = await Question.findById(questionId);
+        const question = await getQuestionCached(questionId);
         if (!question) return res.status(404).json({ error: "Question not found" });
 
         if (!questionBelongsToContest(contest, questionId)) {
@@ -518,7 +521,7 @@ const saveMCQ = async (req, res, next) => {
 
         if (!contest) return res.status(404).json({ error: "Contest not found" });
 
-        const questionDoc = await Question.findById(questionId);
+        const questionDoc = await getQuestionCached(questionId);
         if (!questionDoc) return res.status(404).json({ error: "Question not found" });
 
         if (!questionBelongsToContest(contest, questionId)) {

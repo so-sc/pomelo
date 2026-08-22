@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
+const { getOrSet } = require('../utils/simpleCache');
 
 /**
  * Middleware to validate contest access
@@ -23,7 +24,7 @@ const validateContest = (options = {}) => async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'Invalid contest ID' });
         }
 
-        const contest = await Contest.findById(contestId);
+        const contest = await getOrSet(`contest:${contestId}`, () => Contest.findById(contestId).lean());
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }

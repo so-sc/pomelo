@@ -2,6 +2,7 @@ const Contest = require('../models/Contest');
 const User = require('../models/User');
 const Question = require('../models/Question');
 const { toProblemView } = require('../utils/toProblemView');
+const { getOrSet } = require('../utils/simpleCache');
 
 // @desc    Validate 6-digit Join ID (OTP)
 // @route   POST /api/contest/validate
@@ -137,9 +138,9 @@ const getContestData = async (req, res, next) => {
     try {
         const contest = req.contest;
 
-        const questions = await Question.find({
+        const questions = await getOrSet(`contest-questions:${contest._id}`, () => Question.find({
             _id: { $in: contest.questions }
-        });
+        }).lean());
 
         // Fetch User Submission to get saved state
         const Submission = require('../models/Submissions');

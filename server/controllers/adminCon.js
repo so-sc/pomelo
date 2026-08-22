@@ -10,6 +10,7 @@ const {
   generateExportFilename,
   processImportJSON,
 } = require("../utils/questionsIO");
+const { invalidate } = require("../utils/simpleCache");
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const toNumber = (value) => {
@@ -227,6 +228,8 @@ const updateProblem = async (req, res, next) => {
         const question = await Question.findByIdAndUpdate(id, updates, { returnDocument: "after" });
 
         if (!question) return res.status(404).json({ success: false, error: 'Question not found' });
+
+        invalidate(`question:${id}`);
 
         res.status(200).json({ success: true, problemId: question._id });
     } catch (error) {
@@ -550,6 +553,9 @@ const updateContest = async (req, res, next) => {
         const contest = await Contest.findByIdAndUpdate(id, updates, { returnDocument: "after" });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
+        invalidate(`contest:${id}`);
+        invalidate(`contest-questions:${id}`);
+
         res.status(200).json({ success: true });
     } catch (error) {
         next(error);
@@ -565,6 +571,8 @@ const endContest = async (req, res, next) => {
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
+        invalidate(`contest:${id}`);
+
         res.status(200).json({ success: true });
     } catch (error) {
         next(error);
@@ -579,6 +587,8 @@ const forceEndContest = async (req, res, next) => {
 
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
+
+        invalidate(`contest:${id}`);
 
         const { modifiedCount } = await Submission.updateMany(
             { contest: id, status: 'Ongoing' },
