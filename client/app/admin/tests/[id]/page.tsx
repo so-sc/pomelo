@@ -23,7 +23,7 @@ export default async function AdminTestDetailPage({
   let test = null;
 
   try {
-    const data = await db.findOne<Record<string, unknown>>("contests", { _id: id }, { populate: ["questions"] });
+    const data = await db.findOne<Record<string, unknown>>("contests", { _id: id });
     // Fetch submissions to calculate stats
     const submissions = await db.find<Record<string, unknown>>("submissions", { contest: id }) || [];
     

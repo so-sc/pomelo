@@ -105,6 +105,12 @@ export default function QuestionCard({
             {getTypeIcon(problem.type || "coding")}
             {(problem.questionType || problem.type || "Unknown").toUpperCase()}
           </Badge>
+
+          {problem.removedFromBank && (
+            <Badge variant="destructive" title="Deleted from the question bank — removing it here is permanent">
+              Deleted from bank
+            </Badge>
+          )}
         </div>
       </div>
 

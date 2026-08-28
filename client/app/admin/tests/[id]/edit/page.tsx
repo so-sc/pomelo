@@ -28,6 +28,9 @@ type QuestionReference =
   | {
       _id?: string;
       id?: string;
+      title?: string;
+      type?: string;
+      difficulty?: string;
     };
 
 export default async function AdminTestEditPage({
@@ -59,6 +62,17 @@ export default async function AdminTestEditPage({
     testDataRaw = await db.findOne<MongoTest>("contests", { _id: id });
   } catch (e) {
     console.error(e);
+  }
+
+  if (testDataRaw?.questions?.length) {
+    const bankIds = new Set(availableQuestions.map((q) => q._id || q.id));
+    testDataRaw.questions.forEach((q) => {
+      if (typeof q === "string") return;
+      const qid = q._id || q.id;
+      if (qid && !bankIds.has(qid)) {
+        availableQuestions.push({ ...q, id: qid, removedFromBank: true } as Problem);
+      }
+    });
   }
 
   let testData = null;

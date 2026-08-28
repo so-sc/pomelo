@@ -10,6 +10,7 @@ export interface BaseProblem {
   savedAnswer?: string[]; // Persisted MCQ answer
   savedCode?: string;     // Persisted Code
   savedLanguage?: string; // Persisted Language for Code
+  removedFromBank?: boolean; // In a test's question snapshot but deleted from the bank
 }
 
 export interface CodingProblem extends BaseProblem {

@@ -3,6 +3,8 @@ const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
 const { getOrSet } = require('../utils/simpleCache');
 
+const CONTEST_TTL_MS = 60 * 60_000;
+
 /**
  * Middleware to validate contest access
  * @param {Object} options Configuration options
@@ -24,7 +26,9 @@ const validateContest = (options = {}) => async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'Invalid contest ID' });
         }
 
-        const contest = await getOrSet(`contest:${contestId}`, () => Contest.findById(contestId).lean());
+        // The doc carries its question snapshots now, so one read serves a whole
+        // sitting. Every contest mutation invalidates this key.
+        const contest = await getOrSet(`contest:${contestId}`, () => Contest.findById(contestId).lean(), CONTEST_TTL_MS);
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }

@@ -8,7 +8,6 @@ const {
   deleteQuestion,
   getProblemDetail,
   getAdminContests,
-  getAdminContestDetail,
   createContest,
   cloneContest,
   updateContest,
@@ -19,7 +18,6 @@ const {
   getAdminStats,
   importQuestions,
   exportQuestion,
-  getAdminSubmissionDetail,
 } = require("../controllers/adminCon");
 const { exportScores, exportSubmissions } = require("../controllers/exportResultsCon");
 const { getData, getOne } = require("../controllers/dataCon");
@@ -60,7 +58,6 @@ router.delete("/questions/:id", requireAuth(), isAdmin, deleteQuestion);
 
 // Contests
 router.get("/tests", requireAuth(), isAdmin, getAdminContests);
-router.get("/tests/:id", requireAuth(), isAdmin, getAdminContestDetail);
 router.post("/tests/create", requireAuth(), isAdmin, createContest);
 router.post("/tests/:id/clone", requireAuth(), isAdmin, cloneContest);
 router.put("/tests/:id/edit", requireAuth(), isAdmin, updateContest);
@@ -70,7 +67,6 @@ router.delete("/tests/:id", requireAuth(), isAdmin, deleteContest);
 router.get("/tests/:id/result", requireAuth(), isAdmin, getAdminContestResults);
 router.get("/tests/:id/export/scores", requireAuth(), isAdmin, exportScores);
 router.get("/tests/:id/export/submissions", requireAuth(), isAdmin, exportSubmissions);
-router.get("/tests/:contestId/submissions/:submissionId", requireAuth(), isAdmin, getAdminSubmissionDetail);
 
 // Dashboard Stats
 router.get("/stats", requireAuth(), isAdmin, getAdminStats);

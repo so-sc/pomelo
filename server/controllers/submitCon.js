@@ -1,9 +1,5 @@
 const Submission = require("../models/Submissions");
-const Question = require("../models/Question");
 const Contest = require("../models/Contest");
-const { getOrSet } = require("../utils/simpleCache");
-
-const getQuestionCached = (questionId) => getOrSet(`question:${questionId}`, () => Question.findById(questionId).lean());
 const { languageIds } = require("../utils/languages");
 const { getJudge, serializeValues, validateValues } = require("@pomelo/code-gen");
 
@@ -12,15 +8,12 @@ const resolveContestFromRequest = async (req) => {
     if (!contestId) return { contestId: null, contest: null };
     if (req.contest) return { contestId, contest: req.contest };
 
-    const contest = await Contest.findById(contestId);
+    const contest = await Contest.findById(contestId).lean();
     return { contestId, contest };
 };
 
-const questionBelongsToContest = (contest, questionId) => {
-    if (!contest || !questionId) return false;
-    const contestQuestionIds = (contest.questions || []).map((id) => id.toString());
-    return contestQuestionIds.includes(questionId.toString());
-};
+const findContestQuestion = (contest, questionId) =>
+    (contest?.questions || []).find((q) => String(q._id) === String(questionId));
 
 // Helper function to remove trailing whitespace/newlines from output
 const removeTrailingLineCommands = (output) => {
@@ -369,12 +362,8 @@ const runCode = async (req, res, next) => {
             return res.status(404).json({ success: false, error: "Contest not found" });
         }
 
-        const question = await getQuestionCached(questionId);
-        if (!question) return res.status(404).json({ success: false, error: "Question not found" });
-
-        if (!questionBelongsToContest(contest, questionId)) {
-            return res.status(403).json({ success: false, error: "Question does not belong to contest" });
-        }
+        const question = findContestQuestion(contest, questionId);
+        if (!question) return res.status(404).json({ success: false, error: "Question not found in this test" });
 
         const languageId = languageIds[language.toLowerCase()];
         if (!languageId) return res.status(400).json({ success: false, error: "Unsupported language" });
@@ -440,12 +429,8 @@ const submitCode = async (req, res, next) => {
             return res.status(404).json({ error: "Contest not found" });
         }
 
-        const question = await getQuestionCached(questionId);
-        if (!question) return res.status(404).json({ error: "Question not found" });
-
-        if (!questionBelongsToContest(contest, questionId)) {
-            return res.status(403).json({ error: "Question does not belong to contest" });
-        }
+        const question = findContestQuestion(contest, questionId);
+        if (!question) return res.status(404).json({ error: "Question not found in this test" });
 
         const languageId = languageIds[language.toLowerCase()];
         if (!languageId) return res.status(400).json({ error: "Unsupported language" });
@@ -521,12 +506,8 @@ const saveMCQ = async (req, res, next) => {
 
         if (!contest) return res.status(404).json({ error: "Contest not found" });
 
-        const questionDoc = await getQuestionCached(questionId);
-        if (!questionDoc) return res.status(404).json({ error: "Question not found" });
-
-        if (!questionBelongsToContest(contest, questionId)) {
-            return res.status(403).json({ error: "Question does not belong to contest" });
-        }
+        const questionDoc = findContestQuestion(contest, questionId);
+        if (!questionDoc) return res.status(404).json({ error: "Question not found in this test" });
 
         let score = 0;
         const submittedAnswers = Array.isArray(answer) ? answer : [answer];
@@ -568,4 +549,4 @@ const saveMCQ = async (req, res, next) => {
 };
 
 // executeTestCases is exported to exercise the execution path without Express/Mongo/auth.
-module.exports = { saveMCQ, submitCode, runCode, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };
+module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };

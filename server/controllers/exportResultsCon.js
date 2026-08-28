@@ -4,15 +4,25 @@ const { connectDB } = require('../helpers/dbCon');
 const { buildScoreCSV, buildSubmissionsDump, generateResultsFilename } = require('../utils/resultsIO/export');
 
 async function loadContestAndSubmissions(id) {
-    const contest = await Contest.findById(id).populate('questions', 'title marks').lean();
+    const contest = await Contest.findById(id)
+        .select('title questions._id questions.title questions.marks questions.questionType')
+        .lean();
     if (!contest) {
         return { contest: null, submissions: [] };
     }
 
     const submissions = await Submission.find({ contest: id, status: 'Completed' })
         .populate('user', 'name email')
-        .populate('submissions.question', 'title marks questionType')
         .lean();
+
+    // Resolve against the test's own copies, so a bank edit can't retitle or
+    // re-mark a past export.
+    const byId = new Map((contest.questions || []).map((q) => [String(q._id), q]));
+    submissions.forEach((sub) => {
+        (sub.submissions || []).forEach((item) => {
+            item.question = byId.get(String(item.question));
+        });
+    });
 
     return { contest, submissions };
 }

@@ -38,7 +38,7 @@ interface PopulatedUser {
 interface ContestRecord {
     _id: string;
     title?: string;
-    questions?: { marks?: number }[];
+    questions?: PopulatedQuestion[];
 }
 
 interface PopulatedQuestion {
@@ -62,7 +62,7 @@ interface RawTestCaseResult {
 }
 
 interface RawSubmissionItem {
-    question?: PopulatedQuestion | null;
+    question?: string | null;
     score?: number;
     status?: SubmissionStatus;
     answer?: string[];
@@ -119,8 +119,10 @@ function isMCQQuestion(question: PopulatedQuestion) {
     return question.questionType === "Single Correct" || question.questionType === "Multiple Correct";
 }
 
-function mapSubmissionDetail(submissionItem: RawSubmissionItem): SubmissionDetail | null {
-    const question = submissionItem.question;
+function mapSubmissionDetail(
+    submissionItem: RawSubmissionItem,
+    question?: PopulatedQuestion,
+): SubmissionDetail | null {
     if (!question) {
         return null;
     }
@@ -206,18 +208,22 @@ export default async function SubmissionDetailPage({
             contest: contestId,
             user: userId,
         },
-        { populate: ["user", "submissions.question"] }
+        { populate: ["user"] }
     );
 
     if (!submissionData) {
         notFound();
     }
 
-    const contest = await db.findOne<ContestRecord>("contests", { _id: contestId }, { populate: ["questions"] });
-    const maxScore = (contest?.questions || []).reduce((sum: number, q: { marks?: number }) => sum + (q.marks || 0), 0);
+    const contest = await db.findOne<ContestRecord>("contests", { _id: contestId });
+    const questions = contest?.questions || [];
+    const maxScore = questions.reduce((sum: number, q) => sum + (q.marks || 0), 0);
 
+    // Questions come off the test's own copy, so a bank edit or delete can't
+    // rewrite a graded paper.
+    const questionById = new Map(questions.map((q) => [String(q._id), q]));
     const details = (submissionData.submissions || [])
-        .map(mapSubmissionDetail)
+        .map((item) => mapSubmissionDetail(item, questionById.get(String(item.question))))
         .filter((detail): detail is SubmissionDetail => detail !== null);
 
     const data: UserSubmission = {

@@ -1,8 +1,6 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
 const { toProblemView } = require('../utils/toProblemView');
-const { getOrSet } = require('../utils/simpleCache');
-const { findQuestionsInOrder } = require('../utils/findQuestionsInOrder');
 
 // Stands in for "no submittedAt" so Ongoing entries sort last, matching the
 // Infinity the old in-memory comparator used.
@@ -142,10 +140,7 @@ const getContestData = async (req, res, next) => {
     try {
         const contest = req.contest;
 
-        // Order matters: problems[0] is where the attempt starts, and next/prev
-        // navigation walks this array.
-        const questions = await getOrSet(`contest-questions:${contest._id}`,
-            () => findQuestionsInOrder(contest.questions, { lean: true }));
+        const questions = contest.questions || [];
 
         // Fetch User Submission to get saved state
         const Submission = require('../models/Submissions');
@@ -255,7 +250,9 @@ const startTest = async (req, res, next) => {
 // @access  Private (Admin only)
 const getLeaderboard = async (req, res, next) => {
     try {
-        const contest = await Contest.findById(req.params.id).populate('questions');
+        const contest = await Contest.findById(req.params.id)
+            .select('title endTime durationMinutes status questions.marks')
+            .lean();
         if (!contest) {
             return res.status(404).json({ success: false, message: 'Contest not found' });
         }

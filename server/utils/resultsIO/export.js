@@ -9,7 +9,7 @@ function csvEscape(value) {
 /**
  * Builds a CSV score sheet: one row per candidate, one column per question.
  * @param {{questions: {_id: any, title: string, marks: number}[]}} contest
- * @param {any[]} submissions - lean Submission docs with user + submissions.question populated
+ * @param {any[]} submissions - lean Submission docs with user populated and submissions.question resolved against the contest snapshot
  * @returns {string} CSV string
  */
 function buildScoreCSV(contest, submissions) {
@@ -77,7 +77,7 @@ function mapQuestionEntry(item, verbose) {
 /**
  * Builds a JSON dump of every submission for a contest.
  * @param {{title: string, questions: {marks: number}[]}} contest
- * @param {any[]} submissions - lean Submission docs with user + submissions.question populated
+ * @param {any[]} submissions - lean Submission docs with user populated and submissions.question resolved against the contest snapshot
  * @param {{verbose: boolean}} options
  */
 function buildSubmissionsDump(contest, submissions, { verbose }) {

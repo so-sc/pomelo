@@ -10,7 +10,6 @@ const {
   generateExportFilename,
   processImportJSON,
 } = require("../utils/questionsIO");
-const { invalidate } = require("../utils/simpleCache");
 const { escapeRegex } = require("../utils/escapeRegex");
 const { findQuestionsInOrder } = require("../utils/findQuestionsInOrder");
 
@@ -231,8 +230,6 @@ const updateProblem = async (req, res, next) => {
 
         if (!question) return res.status(404).json({ success: false, error: 'Question not found' });
 
-        invalidate(`question:${id}`);
-
         res.status(200).json({ success: true, problemId: question._id });
     } catch (error) {
         next(error);
@@ -258,28 +255,10 @@ const deleteQuestion = async (req, res, next) => {
         await connectDB();
         const { id } = req.params;
 
-        const usedBy = await Contest.find({ questions: id }).select('title startTime endTime status');
-        const now = new Date();
-        const live = usedBy.filter((contest) => {
-            const status = (contest.status || '').toLowerCase();
-            const manuallyEnded = status === 'completed' || status === 'ended';
-            return !manuallyEnded && now >= new Date(contest.startTime) && now <= new Date(contest.endTime);
-        });
-
-        // Removing a problem mid-sitting shifts every candidate's question list and score.
-        if (live.length > 0) {
-            return res.status(409).json({
-                success: false,
-                error: `This question is in progress in: ${live.map((c) => c.title).join(', ')}. End those contests before deleting it.`
-            });
-        }
-
+        // Tests hold their own copies, so deleting from the bank can't touch them.
         const question = await Question.findByIdAndDelete(id);
 
         if (!question) return res.status(404).json({ success: false, error: 'Question not found' });
-
-        // Otherwise contests keep a dangling id and silently serve fewer problems.
-        await Contest.updateMany({ questions: id }, { $pull: { questions: id } });
 
         res.status(200).json({ success: true, message: 'Question deleted successfully' });
     } catch (error) {
@@ -293,6 +272,13 @@ const deleteQuestion = async (req, res, next) => {
 // mapping below), so filtering by it needs the equivalent Mongo predicate rather
 // than a plain field match. `status` has no schema default, and $nin matches
 // documents where the field is absent.
+// A late joiner's personal deadline can run past endTime, so a contest counts as
+// running until the last possible deadline.
+const isContestRunning = (contest, now) => {
+    const lastPossibleDeadline = new Date(new Date(contest.endTime).getTime() + (contest.durationMinutes || 0) * 60000);
+    return now >= new Date(contest.startTime) && now <= lastPossibleDeadline;
+};
+
 const ENDED_STATUSES = ['completed', 'ended'];
 const statusQuery = (status, now) => ({
     completed: { $or: [{ status: { $in: ENDED_STATUSES } }, { status: { $nin: ENDED_STATUSES }, endTime: { $lt: now } }] },
@@ -334,7 +320,7 @@ const getAdminContests = async (req, res, next) => {
         // Return summary fields
         const [contests, total] = await Promise.all([
             Contest.find(filter)
-                .select('title description createdAt questions author startTime endTime durationMinutes joinId status')
+                .select('title description createdAt questions._id author startTime endTime durationMinutes joinId status')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -411,26 +397,6 @@ const getAdminContests = async (req, res, next) => {
     }
 };
 
-// @desc Get detailed contest information
-const getAdminContestDetail = async (req, res, next) => {
-    try {
-        await connectDB();
-        const contest = await Contest.findById(req.params.id);
-        if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
-
-        // Populate questions manually since they are strings, keeping the
-        // contest's own ordering.
-        const questions = await findQuestionsInOrder(contest.questions);
-
-        const contestWithQuestions = contest.toObject();
-        contestWithQuestions.questions = questions;
-
-        res.status(200).json({ success: true, contest: contestWithQuestions });
-    } catch (error) {
-        next(error);
-    }
-};
-
 // @desc Create a new contest
 const createContest = async (req, res, next) => {
     try {
@@ -452,6 +418,11 @@ const createContest = async (req, res, next) => {
 
         if (problemIds !== undefined && !Array.isArray(problemIds)) {
             return res.status(400).json({ success: false, error: 'problemIds must be an array' });
+        }
+
+        const questions = await findQuestionsInOrder(problemIds || [], { lean: true });
+        if (questions.length !== (problemIds || []).length) {
+            return res.status(400).json({ success: false, error: 'One or more selected questions no longer exist' });
         }
 
         // duration is { start, end } — the join window, not the per-user attempt length
@@ -476,7 +447,7 @@ const createContest = async (req, res, next) => {
                 newContest = new Contest({
                     title, description, startTime, endTime,
                     durationMinutes: durationMinutesNum,
-                    questions: problemIds,
+                    questions,
                     rules,
                     joinId,
                     author: author || "Admin"
@@ -501,7 +472,7 @@ const cloneContest = async (req, res, next) => {
         await connectDB();
         const { id } = req.params;
 
-        const originalContest = await Contest.findById(id);
+        const originalContest = await Contest.findById(id).lean();
         if (!originalContest) {
             return res.status(404).json({ success: false, error: 'Original contest not found' });
         }
@@ -547,7 +518,7 @@ const updateContest = async (req, res, next) => {
         const { id } = req.params;
         const { title, description, duration, durationMinutes, problemIds, rules, visibility } = req.body;
 
-        const existingContest = await Contest.findById(id).select('startTime');
+        const existingContest = await Contest.findById(id).select('startTime endTime durationMinutes questions').lean();
         if (!existingContest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
         if (title !== undefined && !isNonEmptyString(title)) {
@@ -594,14 +565,29 @@ const updateContest = async (req, res, next) => {
             }
         }
         if (problemIds) {
-            updates.questions = problemIds;
+            const currentIds = (existingContest.questions || []).map((q) => String(q._id));
+            const changed = problemIds.length !== currentIds.length
+                || problemIds.some((id, i) => String(id) !== currentIds[i]);
+
+            if (changed) {
+                if (isContestRunning(existingContest, new Date())) {
+                    return res.status(409).json({ success: false, error: 'Cannot change the questions of a test that is running' });
+                }
+
+                const existingById = new Map((existingContest.questions || []).map((q) => [String(q._id), q]));
+                const newIds = problemIds.filter((id) => !existingById.has(String(id)));
+                const fetched = await findQuestionsInOrder(newIds, { lean: true });
+                if (fetched.length !== newIds.length) {
+                    return res.status(400).json({ success: false, error: 'One or more newly added questions no longer exist' });
+                }
+                const fetchedById = new Map(fetched.map((q) => [String(q._id), q]));
+
+                updates.questions = problemIds.map((id) => existingById.get(String(id)) || fetchedById.get(String(id)));
+            }
         }
 
         const contest = await Contest.findByIdAndUpdate(id, updates, { returnDocument: "after" });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
-
-        invalidate(`contest:${id}`);
-        invalidate(`contest-questions:${id}`);
 
         res.status(200).json({ success: true });
     } catch (error) {
@@ -618,8 +604,6 @@ const endContest = async (req, res, next) => {
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
-        invalidate(`contest:${id}`);
-
         res.status(200).json({ success: true });
     } catch (error) {
         next(error);
@@ -635,7 +619,6 @@ const forceEndContest = async (req, res, next) => {
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
-        invalidate(`contest:${id}`);
 
         const { modifiedCount } = await Submission.updateMany(
             { contest: id, status: 'Ongoing' },
@@ -665,7 +648,7 @@ const getAdminContestResults = async (req, res, next) => {
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
         const skip = (page - 1) * limit;
 
-        const contest = await Contest.findById(id).populate('questions', 'marks');
+        const contest = await Contest.findById(id).select('title description startTime endTime durationMinutes questions.marks').lean();
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }
@@ -731,22 +714,14 @@ const deleteContest = async (req, res, next) => {
         await connectDB();
         const { id } = req.params;
 
-        const contest = await Contest.findById(id);
+        const contest = await Contest.findById(id).select('status startTime endTime durationMinutes').lean();
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
 
         if (contest.status === 'ongoing') {
             return res.status(400).json({ success: false, error: 'Cannot delete an ongoing contest' });
         }
 
-        // Double check time (in case cron/status is stale). A late joiner's
-        // personal deadline can run past endTime, so guard up to the last
-        // possible deadline, not just the join window's endTime.
-        const now = new Date();
-        const start = new Date(contest.startTime);
-        const lastPossibleDeadline = new Date(new Date(contest.endTime).getTime() + (contest.durationMinutes || 0) * 60000);
-        const isRunning = now >= start && now <= lastPossibleDeadline;
-
-        if (isRunning) {
+        if (isContestRunning(contest, new Date())) {
             return res.status(400).json({ success: false, error: 'Cannot delete a contest that is currently active (Time-based protection).' });
         }
 
@@ -925,37 +900,11 @@ const importQuestions = async (req, res, next) => {
     }
 };
 
-// @desc Get detailed submission data for a single student attempt
-// NOTE: the route param is named :submissionId but the frontend actually passes a userId
-const getAdminSubmissionDetail = async (req, res, next) => {
-    try {
-        await connectDB();
-        const { contestId, submissionId: userId } = req.params;
-
-        const submission = await Submission.findOne({
-            user: userId,
-            contest: contestId
-        })
-            .populate('user', 'name email')
-            .populate('submissions.question', 'title marks questionType difficulty testcases')
-            .lean();
-
-        if (!submission) {
-            return res.status(404).json({ success: false, error: 'Submission not found' });
-        }
-
-        res.status(200).json({ success: true, submission });
-    } catch (error) {
-        next(error);
-    }
-};
-
 module.exports = {
     createProblem,
     updateProblem,
     getProblemDetail,
     getAdminContests,
-    getAdminContestDetail,
     createContest,
     cloneContest,
     updateContest,
@@ -967,7 +916,6 @@ module.exports = {
     getAdminStats,
     importQuestions,
     exportQuestion,
-    getAdminSubmissionDetail,
     _statusQuery: statusQuery, // exported for tests/adminContests.test.js
 };
 
