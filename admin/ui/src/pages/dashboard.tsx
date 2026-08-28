@@ -48,7 +48,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <Badge variant="outline" className="font-mono bg-background">
-          v{import.meta.env.VITE_APP_VERSION || status?.currentVersion || "unknown"}
+          v{status?.currentVersion || import.meta.env.VITE_APP_VERSION || "unknown"}
         </Badge>
       </div>
 
