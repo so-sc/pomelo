@@ -52,10 +52,10 @@ export function QuestionsList({ questions, total, page, search, type, difficulty
               setTerm(patch.search);
               return;
             }
-            set({
-              type: patch.type === "all" ? undefined : patch.type,
-              difficulty: patch.difficulty === "all" ? undefined : patch.difficulty,
-            });
+            // Only send the key that actually changed — spelling out both would
+            // clear the other filter (undefined deletes the param).
+            const key = "type" in patch ? "type" : "difficulty";
+            set({ [key]: patch[key] === "all" ? undefined : patch[key] });
           }}
         />
 

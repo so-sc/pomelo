@@ -161,22 +161,27 @@ export default function ContestLanding() {
 
   return (
     <>
-      <main className="min-h-screen flex flex-col lg:flex-row pt-16 lg:pt-0">
-        {/* Left Content Area */}
-        <div className="flex-1 px-6 md:px-16 lg:px-24 xl:px-32 py-12 lg:py-36 space-y-16">
-          {/* Hero Section */}
-          <div className="space-y-8">
+      <main className="h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden pt-12">
+        <div className="flex-1 min-w-0 flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
+          <header className="shrink-0 bg-background px-6 md:px-16 lg:px-16 xl:px-24 pt-12 pb-6 space-y-6">
             <div className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold text-primary bg-primary/5">
               Assessment Environment
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">{details?.title}</h1>
-            <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl">{details?.description}</p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4 max-w-3xl">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <InfoStat
                 icon={<Calendar className="h-4 w-4" />}
                 label="Starts"
-                value={details ? new Date(details.startTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "-"}
+                value={
+                  details
+                    ? new Date(details.startTime).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "-"
+                }
               />
               <InfoStat
                 icon={<Hourglass className="h-4 w-4" />}
@@ -186,7 +191,16 @@ export default function ContestLanding() {
               <InfoStat
                 icon={<CalendarX2 className="h-4 w-4" />}
                 label="Ends"
-                value={details ? new Date(details.endTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "-"}
+                value={
+                  details
+                    ? new Date(details.endTime).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "-"
+                }
               />
               <InfoStat
                 icon={<ListChecks className="h-4 w-4" />}
@@ -194,30 +208,40 @@ export default function ContestLanding() {
                 value={`${details?.totalProblems ?? "-"}`}
               />
             </div>
-          </div>
+          </header>
 
-          {/* Guidelines Section */}
-          <div className="space-y-8 pt-8 border-t border-border/30 max-w-3xl">
-            <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-muted-foreground" />
-              Guidelines
-            </h2>
-            <ul className="space-y-5">
-              {details?.rules?.map((rule, i) => (
-                <li key={i} className="flex items-start gap-5 text-muted-foreground">
-                  <span className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-muted text-xs font-bold text-foreground">
-                    {i + 1}
-                  </span>
-                  <span className="leading-relaxed pt-0.5">{rule}</span>
-                </li>
-              ))}
-            </ul>
+          <div className="flex-1 lg:min-h-0 lg:overflow-y-auto px-6 md:px-16 lg:px-16 xl:px-24 pt-2 pb-12 lg:pb-16">
+            {details?.description ? (
+              <section className="max-w-3xl pb-8">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Overview
+                </h2>
+                <p className="text-base leading-7 text-foreground/80">{details.description}</p>
+              </section>
+            ) : null}
+
+            <div className="space-y-6 border-t border-border/30 pt-8 max-w-3xl">
+              <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
+                <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                Guidelines
+              </h2>
+              <ul className="space-y-4 pb-2">
+                {details?.rules?.map((rule, i) => (
+                  <li key={i} className="flex items-start gap-5 text-muted-foreground">
+                    <span className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-muted text-xs font-bold text-foreground">
+                      {i + 1}
+                    </span>
+                    <span className="leading-relaxed pt-0.5">{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
 
         {/* Right Solid Sidebar */}
-        <div className="w-full lg:w-[400px] xl:w-[480px] bg-zinc-50 dark:bg-zinc-900/50 border-t lg:border-t-0 lg:border-l border-border/50 px-6 md:px-16 lg:px-16 py-12 lg:py-36 flex flex-col">
-          <div className="sticky top-32 space-y-10">
+        <div className="w-full lg:w-[400px] xl:w-[480px] lg:h-full shrink-0 bg-zinc-50 dark:bg-zinc-900/50 border-t lg:border-t-0 lg:border-l border-border/50 px-6 md:px-16 lg:px-12 py-12 lg:py-16 lg:overflow-y-auto flex flex-col">
+          <div className="space-y-10">
             <div>
               <h3 className="font-semibold text-2xl tracking-tight mb-3">Assessment Entry</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
@@ -295,11 +319,15 @@ export default function ContestLanding() {
 
 function InfoStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-      <div className="text-primary/70">{icon}</div>
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+      <div className="shrink-0 text-primary/70">{icon}</div>
       <div className="min-w-0">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-        <div className="text-sm font-semibold text-foreground truncate">{value}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </div>
+        <div className="whitespace-nowrap text-sm font-semibold leading-snug text-foreground">
+          {value}
+        </div>
       </div>
     </div>
   );
