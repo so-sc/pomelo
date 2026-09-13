@@ -1,3 +1,4 @@
+export const DISABLE_PROCTORING = false; // TEMP MARKER: Set this to false to re-enable proctoring
 export const MAX_VIOLATIONS = 3;
 export const AUTO_SUBMIT_REASON = "VIOLATION_LIMIT_REACHED";
 
@@ -64,4 +65,11 @@ export function clearAttemptIntegrityState(testId: string) {
 
   window.localStorage.removeItem(getViolationStorageKey(testId));
   resetAttemptObfuscation();
+}
+
+export async function clearClipboard() {
+  if (!isBrowser() || !navigator.clipboard?.writeText) return;
+  try {
+    await navigator.clipboard.writeText("");
+  } catch { /* clipboard permission denied or document not focused */ }
 }

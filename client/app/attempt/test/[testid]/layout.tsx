@@ -8,6 +8,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import React from "react";
 import { getBaseUrl } from "@/lib/env";
+import { DISABLE_PROCTORING } from "@/lib/attempt-integrity";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Test Attempt",
@@ -69,7 +71,7 @@ export default async function TestLayout({
         <IntegrityMonitor />
         <TestHeader initialTimeRemaining={initialTimeRemaining} />
         <QuestionNav problems={problemMeta} />
-        <div className="flex-1 min-w-0 h-full">{children}</div>
+        <div className={cn("flex-1 min-w-0 h-full", !DISABLE_PROCTORING && "select-none")}>{children}</div>
       </ContestAttemptRuntime>
     </main>
   );
