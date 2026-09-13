@@ -1,31 +1,22 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { BadgeCheck, ChevronLeft, ChevronRight, ShieldAlert } from "lucide-react";
-import { useRouter, usePathname, useParams } from "next/navigation";
+import { BadgeCheck, ShieldAlert } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTestCompletion } from "./use-test-completion";
-import { getBaseUrl } from "@/lib/env";
 import { getContestData } from "@/actions/contest";
 import { toast } from "@/components/ui/banner";
 import { readViolationCount, MAX_VIOLATIONS } from "@/lib/attempt-integrity";
 import TestTimer from "./test-timer";
 
-type ProblemMeta = {
-  id: string;
-  type: string;
-};
-
 interface TestHeaderProps {
-  problems: ProblemMeta[];
   initialTimeRemaining: number;
 }
 
-export default function TestHeader({ problems, initialTimeRemaining }: TestHeaderProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const params = useParams();
   const { data: session } = useSession();
   const { completeTest, isSubmitting } = useTestCompletion();
@@ -86,118 +77,25 @@ export default function TestHeader({ problems, initialTimeRemaining }: TestHeade
     await completeTest({ replace: false });
   };
 
-  const currentId = pathname.split("/").pop();
-
-  const scroll = (distance: number) => {
-    scrollRef.current?.scrollBy({ left: distance, behavior: "smooth" });
-  };
-
-  const isCoding = (p: ProblemMeta) => {
-    return p.type === 'coding' || p.type === 'Coding';
-  };
-
-  const codingProblems = problems.filter(isCoding);
-  const mcqProblems = problems.filter((p) => !isCoding(p));
-
   return (
-    <div className="flex items-center justify-center p-2 select-none h-12 absolute top-[var(--banner-h,0px)] w-screen bg-primary">
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 shrink-0">
-        <TestTimer initialSecondsRemaining={initialTimeRemaining} />
-        <div
-          className="flex items-center gap-1.5 px-3 h-8 bg-primary-foreground/10 text-primary-foreground/90 border border-primary-foreground/20 rounded-full text-xs font-medium hover:bg-primary-foreground/20 transition-colors"
-          title={`${MAX_VIOLATIONS - violations} warnings left`}
-        >
-          <ShieldAlert className="h-3.5 w-3.5 text-primary-foreground/70" />
-          <span>{MAX_VIOLATIONS - violations}</span>
-        </div>
-      </div>
-
-      <Button
-        variant="secondary"
-        size="icon"
-        className="bg-muted rounded-none rounded-l-lg"
-        onClick={() => scroll(-300)}
+    <div className="flex items-center justify-end gap-2 px-4 select-none h-12 absolute top-[var(--banner-h,0px)] w-screen bg-primary">
+      <TestTimer initialSecondsRemaining={initialTimeRemaining} />
+      <div
+        className="flex items-center gap-1.5 px-3 h-8 bg-primary-foreground/10 text-primary-foreground/90 border border-primary-foreground/20 rounded-full text-xs font-medium hover:bg-primary-foreground/20 transition-colors"
+        title={`${MAX_VIOLATIONS - violations} warnings left`}
       >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-
-      <div ref={scrollRef} className="overflow-x-auto no-scrollbar max-w-[50vw] sm:max-w-[60vw] lg:max-w-[800px]">
-        <div className="flex w-max bg-background h-9">
-          {mcqProblems.length > 0 && (
-            <div className="flex items-center rounded-md px-2 py-1">
-              <div className="px-2 flex items-center text-xs font-bold text-muted-foreground bg-muted rounded-sm mr-2 py-1">
-                MCQ
-              </div>
-              <div className="flex gap-1">
-                {mcqProblems.map((problem, i) => {
-                  const isActive = String(problem.id) === currentId;
-                  return (
-                    <Button
-                      key={problem.id}
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-sm data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                      data-state={isActive ? "active" : undefined}
-                      onClick={() =>
-                        router.push(`/attempt/test/${params.testid}/question/${problem.id}`)
-                      }
-                    >
-                      {i + 1}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {codingProblems.length > 0 && (
-            <div className="flex items-center rounded-md px-2 py-1">
-              <div className="px-2 flex items-center text-xs font-bold text-muted-foreground bg-muted rounded-sm mr-2 py-1">
-                CODE
-              </div>
-              <div className="flex gap-1">
-                {codingProblems.map((problem, i) => {
-                  const isActive = String(problem.id) === currentId;
-                  return (
-                    <Button
-                      key={problem.id}
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-sm data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                      data-state={isActive ? "active" : undefined}
-                      onClick={() =>
-                        router.push(`/attempt/test/${params.testid}/question/${problem.id}`)
-                      }
-                    >
-                      {i + 1}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <ShieldAlert className="h-3.5 w-3.5 text-primary-foreground/70" />
+        <span>{MAX_VIOLATIONS - violations}</span>
       </div>
-
       <Button
-        variant="secondary"
-        size="icon"
-        className="bg-muted rounded-none rounded-r-lg"
-        onClick={() => scroll(300)}
+        variant={"secondary"}
+        className="text-sm bg-green-600 hover:bg-green-700 text-white border-none h-9 ml-2"
+        onClick={handleFinish}
+        disabled={isSubmitting}
       >
-        <ChevronRight className="h-4 w-4" />
+        {isSubmitting ? "Finishing..." : "Submit"}
+        {!isSubmitting && <BadgeCheck className="h-4 w-4 ml-2" />}
       </Button>
-
-      <div className="flex items-center ml-4 mr-2 shrink-0">
-        <Button
-          variant={"secondary"}
-          className="text-sm bg-green-600 hover:bg-green-700 text-white border-none h-9"
-          onClick={handleFinish}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Finishing..." : "Submit"}
-          {!isSubmitting && <BadgeCheck className="h-4 w-4 ml-2" />}
-        </Button>
-      </div>
     </div>
   );
 }

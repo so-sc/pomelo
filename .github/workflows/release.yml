@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Verify tag matches package.json version
+        run: node scripts/check-tag-version.mjs "$GITHUB_REF_NAME"
+
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
         with:

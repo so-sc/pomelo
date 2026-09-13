@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AUTO_SUBMIT_REASON,
+  DISABLE_PROCTORING,
   MAX_VIOLATIONS,
+  clearClipboard,
   obfuscateAttemptBody,
   persistViolationCount,
   readViolationCount,
@@ -23,8 +25,6 @@ const WINDOW_BLUR_DEBOUNCE_MS = 500;
 const VIOLATION_COOLDOWN_MS = 1000;
 const SCREENSHOT_OBFUSCATION_MS = 500;
 const FINAL_MODAL_DELAY_MS = 5000;
-
-export const DISABLE_PROCTORING = false; // TEMP MARKER: Set this to false to re-enable proctoring
 
 const violationMessages: Record<ViolationType, { title: string; description: string }> = {
   VISIBILITY_HIDDEN: {
@@ -218,6 +218,7 @@ export default function IntegrityMonitor() {
     const storedCount = readViolationCount(testId);
     setViolationCount(storedCount);
 
+    void clearClipboard();
     void requestTestFullscreen();
     setCountdown(Math.ceil(FINAL_MODAL_DELAY_MS / 1000));
 
@@ -275,11 +276,6 @@ export default function IntegrityMonitor() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       const usesSystemModifier = event.ctrlKey || event.metaKey;
-
-      if (usesSystemModifier && ["c", "v", "x"].includes(key)) {
-        event.preventDefault();
-        return;
-      }
 
       if (event.key === "F12" || (usesSystemModifier && event.shiftKey && key === "i")) {
         event.preventDefault();
