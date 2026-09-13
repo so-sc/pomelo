@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import TestHeader from "@/components/attempt/test-header";
+import QuestionNav from "@/components/attempt/question-nav";
 import IntegrityMonitor from "@/components/attempt/integrity-monitor";
-import { ContestAttemptRuntime } from "@/components/attempt/attempt-runtime";
+import { ContestAttemptRuntime, QuestionProgress } from "@/components/attempt/attempt-runtime";
+import { Problem } from "@/types/problem";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import React from "react";
@@ -50,18 +52,24 @@ export default async function TestLayout({
   const problems = result.data?.problems || [];
 
   const problemMeta = problems.map((q: { id: string; type: string }) => ({
-    id: q.id,
+    id: String(q.id),
     type: q.type
   }));
+  const initialProgress: Record<string, QuestionProgress> = {};
+  for (const q of problems as Problem[]) {
+    if (q.savedAnswer?.length) initialProgress[String(q.id)] = "solved";
+    else if (q.savedCode) initialProgress[String(q.id)] = "attempted";
+  }
 
   const initialTimeRemaining = Number(result.data?.timeRemaining) || 0;
 
   return (
-    <main className="w-screen h-screen pt-12">
-      <ContestAttemptRuntime contestId={testid}>
+    <main className="w-screen h-screen pt-12 flex">
+      <ContestAttemptRuntime contestId={testid} initialProgress={initialProgress}>
         <IntegrityMonitor />
-        <TestHeader problems={problemMeta} initialTimeRemaining={initialTimeRemaining} />
-        {children}
+        <TestHeader initialTimeRemaining={initialTimeRemaining} />
+        <QuestionNav problems={problemMeta} />
+        <div className="flex-1 min-w-0 h-full">{children}</div>
       </ContestAttemptRuntime>
     </main>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { submitMcq } from "@/actions/contest";
 
 export type ExecutionAction = "run" | "submit";
@@ -45,7 +45,10 @@ export interface AttemptRuntime {
     onExecuting: () => void
   ): Promise<ExecutionResult>;
   saveMcqAnswer(questionId: string, answers: string[]): Promise<McqSaveResult>;
+  progress: Record<string, QuestionProgress>;
 }
+
+export type QuestionProgress = "attempted" | "solved";
 
 const AttemptRuntimeContext = createContext<AttemptRuntime | null>(null);
 
@@ -121,17 +124,50 @@ async function streamExecution(
 
 export function ContestAttemptRuntime({
   contestId,
+  initialProgress,
   children,
 }: {
   contestId: string;
+  initialProgress: Record<string, QuestionProgress>;
   children: React.ReactNode;
 }) {
+  const storageKey = `pomelo_progress_${contestId}`;
+  const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      setProgress((prev) => ({ ...stored, ...prev }));
+    } catch { /* localStorage unavailable */ }
+  }, [storageKey]);
+
+  const setQuestionProgress = useCallback((questionId: string, status: QuestionProgress | null) => {
+    setProgress((prev) => {
+      const next = { ...prev };
+      if (status) next[questionId] = status;
+      else delete next[questionId];
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* unavailable */ }
+      return next;
+    });
+  }, [storageKey]);
+
   const runtime = useMemo<AttemptRuntime>(() => ({
     mode: "contest",
-    execute: (action, questionId, code, language, onExecuting) =>
-      streamExecution(`/api/test/${contestId}/${action}`, questionId, code, language, onExecuting),
-    saveMcqAnswer: (questionId, answers) => submitMcq(contestId, questionId, answers),
-  }), [contestId]);
+    progress,
+    execute: async (action, questionId, code, language, onExecuting) => {
+      const result = await streamExecution(`/api/test/${contestId}/${action}`, questionId, code, language, onExecuting);
+      if (result.success) {
+        const solved = action === "submit" && result.overallStatus === "Accepted";
+        if (solved || progress[questionId] !== "solved") setQuestionProgress(questionId, solved ? "solved" : "attempted");
+      }
+      return result;
+    },
+    saveMcqAnswer: async (questionId, answers) => {
+      const result = await submitMcq(contestId, questionId, answers);
+      if (result.success) setQuestionProgress(questionId, answers.length > 0 ? "solved" : null);
+      return result;
+    },
+  }), [contestId, progress, setQuestionProgress]);
 
   return (
     <AttemptRuntimeContext.Provider value={runtime}>
@@ -149,6 +185,7 @@ export function PreviewAttemptRuntime({
 }) {
   const runtime = useMemo<AttemptRuntime>(() => ({
     mode: "preview",
+    progress: {},
     execute: (action, _questionId, code, language, onExecuting) =>
       streamExecution(
         `/api/admin/questions/${questionId}/preview/${action}`,

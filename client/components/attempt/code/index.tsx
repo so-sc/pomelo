@@ -86,7 +86,7 @@ export function CodeScreen({
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="w-screen h-full border"
+      className="w-full h-full border"
     >
       <ResizablePanel defaultSize={30} minSize={4}>
         <div className="flex h-full w-full">
