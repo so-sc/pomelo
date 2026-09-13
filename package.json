@@ -1,6 +1,6 @@
 {
   "name": "pomelo",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
@@ -11,7 +11,9 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "clean": "turbo run clean && rm -rf node_modules .turbo"
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "release": "pnpm version",
+    "check-tag": "node scripts/check-tag-version.mjs"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
