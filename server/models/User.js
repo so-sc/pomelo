@@ -9,10 +9,25 @@ const userSchema = new mongoose.Schema({
     maxlength: 254,
     match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   },
+  // How the account was first created. Credential accounts may later be linked to Google.
+  authProvider: {
+    type: String,
+    enum: ["credentials", "google"],
+    default: "credentials",
+  },
   passwordHash: {
     type: String,
-    required: true,
+    required: function () { return this.authProvider !== "google"; },
     select: false,
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  avatar: {
+    type: String,
+    maxlength: 2048,
   },
   name: {
     type: String,
