@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { AuthSettings } from "@/components/auth-settings";
 
 export default function EnvironmentPage() {
   const [config, setConfig] = useState<ConfigSnapshot | null>(null);
@@ -86,6 +87,7 @@ export default function EnvironmentPage() {
           <TabsTrigger value="caddy">Caddyfile</TabsTrigger>
           <TabsTrigger value="citron">Citron</TabsTrigger>
           <TabsTrigger value="citron-languages">Languages</TabsTrigger>
+          <TabsTrigger value="auth">Authentication</TabsTrigger>
         </TabsList>
 
         <TabsContent value="appenv">
@@ -158,6 +160,16 @@ export default function EnvironmentPage() {
               className="text-xs font-mono"
             />
           </div>
+        </TabsContent>
+        <TabsContent value="auth">
+          {config && (
+            <AuthSettings
+              configYaml={configYaml}
+              appEnv={appEnv}
+              onConfigYamlChange={setConfigYaml}
+              onAppEnvChange={setAppEnv}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
