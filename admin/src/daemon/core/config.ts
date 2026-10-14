@@ -23,6 +23,15 @@ export function defaultConfigYaml() {
     "    mode: \"internal\"",
     "  citron:",
     "    mode: \"internal\"",
+    "",
+    "# Sign-in methods. Google needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in app.env.",
+    "# Admins can always sign in with a password, even when credentials are disabled.",
+    "auth:",
+    "  credentials:",
+    "    enabled: true",
+    "  google:",
+    "    enabled: false",
+    "    allowedDomains: []",
   ].join("\n") + "\n";
 }
 
@@ -101,8 +110,37 @@ export function validateConfig(paths: Paths) {
   const appEnv = existsSync(paths.envFile)
     ? readFileSync(paths.envFile, "utf8")
     : "";
-  const envErrors = validateEnv(appEnv);
+  const envErrors = [
+    ...validateEnv(appEnv),
+    ...validateAuthConfig(parseConfigYaml(paths) || {}, parseEnv(appEnv)),
+  ];
   return { envErrors };
+}
+
+export function validateAuthConfig(cfg: any, env: Record<string, string>) {
+  const auth = resolveAuthConfig(cfg);
+  const errors: string[] = [];
+  if (auth.googleEnabled && (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET)) {
+    errors.push("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when Google sign-in is enabled");
+  }
+  if (cfg.auth?.credentials?.enabled === false && !auth.googleEnabled) {
+    errors.push("Password login can only be disabled while Google sign-in is enabled");
+  }
+  return errors;
+}
+
+/** Normalises the `auth:` section of config.yaml; missing keys keep today's behaviour. */
+export function resolveAuthConfig(cfg: any) {
+  const googleEnabled = cfg.auth?.google?.enabled === true;
+  const domains = cfg.auth?.google?.allowedDomains;
+  return {
+    googleEnabled,
+    // Disabling passwords without Google would leave students no way in, so it is ignored.
+    credentialsEnabled: cfg.auth?.credentials?.enabled !== false || !googleEnabled,
+    allowedDomains: Array.isArray(domains)
+      ? domains.map((d: unknown) => String(d).trim().toLowerCase()).filter(Boolean)
+      : [],
+  };
 }
 
 export function validateEnv(content: string) {

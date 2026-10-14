@@ -1,6 +1,6 @@
 import { getComposeConfig } from "../core/paths";
 import { getCurrentReleaseDir } from "../core/release";
-import { parseConfigYaml } from "../core/config";
+import { parseConfigYaml, resolveAuthConfig } from "../core/config";
 import type { Paths } from "../core/types";
 
 /**
@@ -57,6 +57,7 @@ export class ComposeCommand {
     const citronMode = cfgYaml.infrastructure?.citron?.mode ?? "internal";
     const domain = cfgYaml.app?.domain ?? "localhost";
     const protocol = cfgYaml.app?.protocol ?? "http";
+    const auth = resolveAuthConfig(cfgYaml);
 
     const profiles: string[] = [];
     if (dbMode === "internal") profiles.push("internal-db");
@@ -69,6 +70,9 @@ export class ComposeCommand {
       CADDY_HTTP_PORT: String(caddyHttp),
       CADDY_HTTPS_PORT: String(caddyHttps),
       COMPOSE_PROFILES: profiles.join(","),
+      AUTH_CREDENTIALS_ENABLED: String(auth.credentialsEnabled),
+      AUTH_GOOGLE_ENABLED: String(auth.googleEnabled),
+      AUTH_GOOGLE_ALLOWED_DOMAINS: auth.allowedDomains.join(","),
     };
 
     if (dbMode === "internal") {
