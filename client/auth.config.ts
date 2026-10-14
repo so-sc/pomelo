@@ -1,9 +1,15 @@
 
-import type { NextAuthConfig } from "next-auth"
+import { CredentialsSignin, type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+import Google from "next-auth/providers/google"
 import { z } from "zod"
 import { SignJWT } from "jose"
 import { getBaseUrl } from "@/lib/env";
+import { getAuthMethods, getGoogleAllowedDomains } from "@/lib/auth-methods";
+
+class PasswordLoginDisabled extends CredentialsSignin {
+    code = "PasswordLoginDisabled"
+}
 
 // Helper to mint a token for the Express Request
 // this minting happens on Next.js server side.
@@ -60,6 +66,38 @@ export const authConfig = {
         signIn: '/auth/login',
     },
     callbacks: {
+        async signIn({ user, account }: { user: any; account?: any }) {
+            if (account?.provider !== "google") return true;
+
+            // The backend verifies Google's id_token itself, then finds, links or creates the user.
+            try {
+                const res = await fetch(`${getBaseUrl()}/api/auth/google`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: account.id_token })
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (res.ok && data.success && data.user) {
+                    // Without an adapter Auth.js passes this same object to the jwt callback,
+                    // so the session carries our database id and role, not Google's.
+                    Object.assign(user, {
+                        id: String(data.user._id),
+                        _id: data.user._id,
+                        role: data.user.role,
+                        name: data.user.name,
+                        email: data.user.email,
+                        image: data.user.avatar ?? user.image,
+                    });
+                    return true;
+                }
+
+                return `/auth/login?error=${encodeURIComponent(data.code || "GoogleSignInFailed")}`;
+            } catch (error: any) {
+                console.error(`Google auth API error: ${error.message || 'Unknown error'}`);
+                return "/auth/login?error=GoogleSignInFailed";
+            }
+        },
         authorized({ auth, request }: { auth: any; request: any }) {
             const nextUrl = request?.nextUrl;
             if (!nextUrl) return true;
@@ -155,9 +193,13 @@ export const authConfig = {
                             return data.user;
                         }
 
+                        if (data.code === "PasswordLoginDisabled") {
+                            throw new PasswordLoginDisabled();
+                        }
 
                         return null;
                     } catch (error: any) {
+                        if (error instanceof PasswordLoginDisabled) throw error;
                         console.error(`Auth API error: ${error.message || 'Unknown error'}`);
                         return null;
                     }
@@ -167,5 +209,25 @@ export const authConfig = {
                 return null;
             },
         }),
+        ...googleProviders(),
     ],
 } satisfies NextAuthConfig
+
+function googleProviders() {
+    if (!getAuthMethods().google) return [];
+
+    const domains = getGoogleAllowedDomains();
+    return [
+        Google({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            authorization: {
+                params: {
+                    prompt: "select_account",
+                    // `hd` only preselects the account; the backend enforces the domain list.
+                    ...(domains.length === 1 ? { hd: domains[0] } : {}),
+                },
+            },
+        }),
+    ];
+}

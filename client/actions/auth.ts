@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { z } from "zod";
 import { getBaseUrl } from "@/lib/env";
 
@@ -23,6 +23,9 @@ export async function authenticate(prevState: string | undefined, formData: Form
         if (error instanceof AuthError) {
             switch (error.type) {
                 case "CredentialsSignin":
+                    if ((error as CredentialsSignin).code === "PasswordLoginDisabled") {
+                        return "Password login is disabled. Sign in with Google.";
+                    }
                     return "Invalid credentials.";
                 default:
                     return "Something went wrong.";
