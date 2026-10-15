@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Database, Code, Globe, CheckCircle, AlertCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Database, Code, Globe, CheckCircle, AlertCircle, KeyRound } from "lucide-react";
+import { AUTH_PROVIDERS, isProviderEnabled } from "../../../src/shared/auth-providers";
 
 export default function SetupPage() {
   const [config, setConfig] = useState<ConfigSnapshot | null>(null);
@@ -26,6 +28,10 @@ export default function SetupPage() {
   const [domain, setDomain] = useState("localhost");
   const [protocol, setProtocol] = useState<"http" | "https">("http");
   const [domainSaving, setDomainSaving] = useState(false);
+
+  const [authEnabled, setAuthEnabled] = useState<Record<string, boolean>>({});
+  const [authSecrets, setAuthSecrets] = useState<Record<string, string>>({});
+  const [authSaving, setAuthSaving] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -53,6 +59,11 @@ export default function SetupPage() {
       }
       if (cfgYaml.app?.domain) setDomain(cfgYaml.app.domain);
       if (cfgYaml.app?.protocol) setProtocol(cfgYaml.app.protocol);
+
+      setAuthEnabled(Object.fromEntries(AUTH_PROVIDERS.map((p) => [p.id, isProviderEnabled(cfgYaml, p.id)])));
+      setAuthSecrets(Object.fromEntries(
+        AUTH_PROVIDERS.flatMap((p) => p.secrets).map((s) => [s.key, env[s.key] ?? ""])
+      ));
     } catch {}
   }
 
@@ -199,6 +210,37 @@ export default function SetupPage() {
       window.dispatchEvent(new CustomEvent("action-error", { detail: err.message || String(err) }));
     }
     setDomainSaving(false);
+  }
+
+  const authMissingSecrets = AUTH_PROVIDERS.some(
+    (p) => authEnabled[p.id] && p.secrets.some((s) => !authSecrets[s.key]?.trim())
+  );
+  const authNoneEnabled = !AUTH_PROVIDERS.some((p) => authEnabled[p.id]);
+
+  async function handleSaveAuth() {
+    setAuthSaving(true);
+    try {
+      const secrets = Object.fromEntries(
+        AUTH_PROVIDERS.filter((p) => authEnabled[p.id])
+          .flatMap((p) => p.secrets)
+          .map((s) => [s.key, authSecrets[s.key].trim()])
+      );
+      const newEnv = updateEnvContent(config?.appEnv || "", secrets);
+      const newYaml = updateYaml(config?.configYaml || "", (doc) => {
+        if (!doc.auth) doc.auth = {};
+        if (!doc.auth.providers) doc.auth.providers = {};
+        for (const p of AUTH_PROVIDERS) {
+          doc.auth.providers[p.id] = { ...doc.auth.providers[p.id], enabled: !!authEnabled[p.id] };
+        }
+      });
+      const result = await api.updateConfig({ appEnv: newEnv, configYaml: newYaml });
+      await loadConfig();
+      await applyRestartAction((result as any)?.restartAction ?? "restart-all");
+    } catch (err: any) {
+      console.error(err);
+      window.dispatchEvent(new CustomEvent("action-error", { detail: err.message || String(err) }));
+    }
+    setAuthSaving(false);
   }
 
   return (
@@ -366,6 +408,67 @@ export default function SetupPage() {
 
             <Button onClick={handleSaveDomain} disabled={domainSaving}>
               {domainSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Save & Restart
+            </Button>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* Authentication Section */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            <h3 className="text-lg font-medium">Authentication</h3>
+          </div>
+          <div className="pl-7 space-y-6">
+            {AUTH_PROVIDERS.map((provider) => (
+              <div key={provider.id} className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label>{provider.label}</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">{provider.description}</p>
+                  </div>
+                  <Switch
+                    checked={!!authEnabled[provider.id]}
+                    onCheckedChange={(v) => setAuthEnabled({ ...authEnabled, [provider.id]: v })}
+                  />
+                </div>
+                {authEnabled[provider.id] && provider.secrets.length > 0 && (
+                  <div className="space-y-4 pl-4 border-l">
+                    {provider.secrets.map((secret) => (
+                      <div key={secret.key} className="space-y-2">
+                        <Label htmlFor={`auth-${secret.key}`}>{secret.label}</Label>
+                        <Input
+                          id={`auth-${secret.key}`}
+                          type={secret.sensitive ? "password" : "text"}
+                          value={authSecrets[secret.key] ?? ""}
+                          onChange={(e) => setAuthSecrets({ ...authSecrets, [secret.key]: e.target.value })}
+                          placeholder={secret.placeholder}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    ))}
+                    {provider.callbackPath && (
+                      <p className="text-xs text-muted-foreground">
+                        Authorised redirect URI:{" "}
+                        <code className="text-xs bg-muted px-1 rounded">{`${protocol}://${domain}${provider.callbackPath}`}</code>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {authNoneEnabled && (
+              <p className="text-xs text-destructive">Enable at least one sign-in method.</p>
+            )}
+            {!authNoneEnabled && authMissingSecrets && (
+              <p className="text-xs text-destructive">Fill in the credentials for every enabled sign-in method.</p>
+            )}
+
+            <Button onClick={handleSaveAuth} disabled={authSaving || authNoneEnabled || authMissingSecrets}>
+              {authSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save & Restart
             </Button>
           </div>

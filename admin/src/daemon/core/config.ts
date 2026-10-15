@@ -3,6 +3,7 @@ import { join } from "path";
 import { randomBytes } from "crypto";
 import YAML from "yaml";
 import type { Paths } from "./types";
+import { AUTH_PROVIDERS, isProviderEnabled } from "../../shared/auth-providers";
 
 export function defaultConfigYaml() {
   return [
@@ -23,6 +24,14 @@ export function defaultConfigYaml() {
     "    mode: \"internal\"",
     "  citron:",
     "    mode: \"internal\"",
+    "",
+    "# Sign-in methods. Google needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in app.env.",
+    "auth:",
+    "  providers:",
+    "    credentials:",
+    "      enabled: true",
+    "    google:",
+    "      enabled: false",
   ].join("\n") + "\n";
 }
 
@@ -101,8 +110,26 @@ export function validateConfig(paths: Paths) {
   const appEnv = existsSync(paths.envFile)
     ? readFileSync(paths.envFile, "utf8")
     : "";
-  const envErrors = validateEnv(appEnv);
+  const envErrors = [
+    ...validateEnv(appEnv),
+    ...validateAuthConfig(parseConfigYaml(paths) || {}, parseEnv(appEnv)),
+  ];
   return { envErrors };
+}
+
+export function validateAuthConfig(cfg: any, env: Record<string, string>) {
+  const enabled = AUTH_PROVIDERS.filter((p) => isProviderEnabled(cfg, p.id));
+  const errors: string[] = [];
+  if (!enabled.length) {
+    errors.push("At least one sign-in method must be enabled");
+  }
+  for (const provider of enabled) {
+    const missing = provider.secrets.filter((s) => !env[s.key]).map((s) => s.key);
+    if (missing.length) {
+      errors.push(`${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} required when ${provider.label} sign-in is enabled`);
+    }
+  }
+  return errors;
 }
 
 export function validateEnv(content: string) {

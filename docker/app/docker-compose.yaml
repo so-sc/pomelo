@@ -26,6 +26,8 @@ services:
       - CITRON_URL=${CITRON_URL}
       - DOMAIN=${DOMAIN}
       - PROTOCOL=${PROTOCOL:-http}
+      - AUTH_PROVIDERS=${AUTH_PROVIDERS:-credentials}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     depends_on:
       mongo:
         condition: service_healthy
@@ -45,6 +47,9 @@ services:
       - AUTH_URL=${PROTOCOL:-http}://${DOMAIN}
       - DOMAIN=${DOMAIN}
       - PROTOCOL=${PROTOCOL:-http}
+      - AUTH_PROVIDERS=${AUTH_PROVIDERS:-credentials}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     depends_on:
       server:
         condition: service_started

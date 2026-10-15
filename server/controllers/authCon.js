@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { CREDENTIALS, isProviderEnabled } = require('../auth/config');
+const { oauthProviders } = require('../auth/providers');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -8,12 +10,21 @@ const handleLogin = async (req, res, next) => {
         const { SignJWT } = await import('jose');
         const { email, password } = req.body;
 
+        if (!isProviderEnabled(CREDENTIALS)) {
+            return res.status(403).json({ code: 'PasswordLoginDisabled', message: 'Password login is disabled' });
+        }
+
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
         if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Provider-only accounts have no password to compare against.
+        if (!user.passwordHash) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
@@ -54,6 +65,10 @@ const handleRegister = async (req, res, next) => {
     try {
         const { SignJWT } = await import('jose');
         const { email, password, name } = req.body;
+
+        if (!isProviderEnabled(CREDENTIALS)) {
+            return res.status(403).json({ code: 'RegistrationDisabled', message: 'Registration is disabled' });
+        }
 
         if (!email || !password || !name) {
             return res.status(400).json({ message: 'All fields are required' });
@@ -115,7 +130,101 @@ const handleRegister = async (req, res, next) => {
     }
 }
 
+// Checks a provider's verified profile against our policy; returns what to store or an error.
+const resolveProfile = (profile) => {
+    if (!profile?.providerAccountId || !profile.email) {
+        return { error: { status: 401, code: 'OAuthSignInFailed', message: 'Account has no email' } };
+    }
+    // Linking by email is only safe when the provider vouches that the user owns the mailbox.
+    if (profile.emailVerified !== true) {
+        return { error: { status: 403, code: 'OAuthEmailNotVerified', message: 'Email is not verified' } };
+    }
+    const email = profile.email.toLowerCase().trim();
+    const name = (profile.name || email.split('@')[0]).trim().slice(0, 100);
+    return { profile: { providerAccountId: String(profile.providerAccountId), email, name, avatar: profile.avatar } };
+};
+
+const findOrCreateOAuthUser = async (provider, { providerAccountId, email, name, avatar }) => {
+    const account = { provider, providerAccountId };
+    const linked = await User.findOne({ accounts: { $elemMatch: account } });
+    if (linked) return linked;
+
+    if (await User.exists({ email })) {
+        // The provider has proven this person owns the mailbox; nobody else proved anything.
+        // Drop the password so whoever registered this email before them loses access.
+        const user = await User.findOneAndUpdate(
+            { email, 'accounts.provider': { $ne: provider } },
+            { $push: { accounts: account }, $unset: { passwordHash: 1 } },
+            { returnDocument: 'after' }
+        );
+        // Null: the email is already linked to a different account at this provider.
+        if (user && !user.avatar && avatar) {
+            user.avatar = avatar;
+            await user.save();
+        }
+        return user;
+    }
+
+    try {
+        return await User.create({
+            email,
+            name,
+            avatar,
+            accounts: [account],
+            role: 'user',
+            registeredContests: []
+        });
+    } catch (error) {
+        // Two concurrent first sign-ins: the loser picks up the row the winner created.
+        if (error?.code === 11000) return User.findOne({ accounts: { $elemMatch: account } });
+        throw error;
+    }
+};
+
+const handleOAuth = async (req, res, next) => {
+    try {
+        const providerId = req.params.provider;
+        const provider = Object.hasOwn(oauthProviders, providerId) ? oauthProviders[providerId] : null;
+        if (!provider || !isProviderEnabled(providerId)) {
+            return res.status(403).json({ code: 'OAuthProviderDisabled', message: 'This sign-in method is disabled' });
+        }
+
+        let verified;
+        try {
+            verified = await provider.verify(req.body || {}, process.env);
+        } catch {
+            return res.status(401).json({ code: 'OAuthSignInFailed', message: 'Invalid sign-in token' });
+        }
+
+        const { profile, error } = resolveProfile(verified);
+        if (error) {
+            return res.status(error.status).json({ code: error.code, message: error.message });
+        }
+
+        const user = await findOrCreateOAuthUser(provider.id, profile);
+        if (!user) {
+            return res.status(409).json({ code: 'OAuthAccountNotLinked', message: 'This email is linked to a different account' });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                avatar: user.avatar
+            }
+        });
+
+    } catch (error) {
+        next(error);
+    }
+}
+
 module.exports = {
     handleLogin,
-    handleRegister
+    handleRegister,
+    handleOAuth,
+    _resolveProfile: resolveProfile
 }

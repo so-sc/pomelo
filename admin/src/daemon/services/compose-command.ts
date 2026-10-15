@@ -1,6 +1,7 @@
 import { getComposeConfig } from "../core/paths";
 import { getCurrentReleaseDir } from "../core/release";
 import { parseConfigYaml } from "../core/config";
+import { resolveEnabledProviders } from "../../shared/auth-providers";
 import type { Paths } from "../core/types";
 
 /**
@@ -69,6 +70,7 @@ export class ComposeCommand {
       CADDY_HTTP_PORT: String(caddyHttp),
       CADDY_HTTPS_PORT: String(caddyHttps),
       COMPOSE_PROFILES: profiles.join(","),
+      AUTH_PROVIDERS: resolveEnabledProviders(cfgYaml).join(","),
     };
 
     if (dbMode === "internal") {

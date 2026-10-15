@@ -1,9 +1,8 @@
 
 import type { NextAuthConfig } from "next-auth"
-import Credentials from "next-auth/providers/credentials"
-import { z } from "zod"
 import { SignJWT } from "jose"
 import { getBaseUrl } from "@/lib/env";
+import { getEnabledProviders, getProviderEntry } from "@/lib/auth/providers";
 
 // Helper to mint a token for the Express Request
 // this minting happens on Next.js server side.
@@ -60,6 +59,39 @@ export const authConfig = {
         signIn: '/auth/login',
     },
     callbacks: {
+        async signIn({ user, account }: { user: any; account?: any }) {
+            const entry = account ? getProviderEntry(account.provider) : undefined;
+            if (!entry?.toBackendPayload) return true;
+
+            // The backend verifies the provider's token itself, then finds, links or creates the user.
+            try {
+                const res = await fetch(`${getBaseUrl()}/api/auth/oauth/${entry.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(entry.toBackendPayload(account))
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (res.ok && data.success && data.user) {
+                    // Without an adapter Auth.js passes this same object to the jwt callback,
+                    // so the session carries our database id and role, not the provider's.
+                    Object.assign(user, {
+                        id: String(data.user._id),
+                        _id: data.user._id,
+                        role: data.user.role,
+                        name: data.user.name,
+                        email: data.user.email,
+                        image: data.user.avatar ?? user.image,
+                    });
+                    return true;
+                }
+
+                return `/auth/login?error=${encodeURIComponent(data.code || "OAuthSignInFailed")}`;
+            } catch (error: any) {
+                console.error(`OAuth API error: ${error.message || 'Unknown error'}`);
+                return "/auth/login?error=OAuthSignInFailed";
+            }
+        },
         authorized({ auth, request }: { auth: any; request: any }) {
             const nextUrl = request?.nextUrl;
             if (!nextUrl) return true;
@@ -132,40 +164,5 @@ export const authConfig = {
             return session
         },
     },
-    providers: [
-        Credentials({
-            async authorize(credentials) {
-                const parsedCredentials = z
-                    .object({ email: z.string().email(), password: z.string().min(6) })
-                    .safeParse(credentials);
-
-                if (parsedCredentials.success) {
-                    const { email, password } = parsedCredentials.data;
-
-                    try {
-                        const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email, password })
-                        });
-
-                        const data = await res.json();
-
-                        if (res.ok && data.success && data.user) {
-                            return data.user;
-                        }
-
-
-                        return null;
-                    } catch (error: any) {
-                        console.error(`Auth API error: ${error.message || 'Unknown error'}`);
-                        return null;
-                    }
-                }
-
-
-                return null;
-            },
-        }),
-    ],
+    providers: getEnabledProviders().map((p) => p.create()),
 } satisfies NextAuthConfig
