@@ -3,6 +3,7 @@ import { join } from "path";
 import { randomBytes } from "crypto";
 import YAML from "yaml";
 import type { Paths } from "./types";
+import { AUTH_PROVIDERS, isProviderEnabled } from "../../shared/auth-providers";
 
 export function defaultConfigYaml() {
   return [
@@ -25,13 +26,12 @@ export function defaultConfigYaml() {
     "    mode: \"internal\"",
     "",
     "# Sign-in methods. Google needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in app.env.",
-    "# Admins can always sign in with a password, even when credentials are disabled.",
     "auth:",
-    "  credentials:",
-    "    enabled: true",
-    "  google:",
-    "    enabled: false",
-    "    allowedDomains: []",
+    "  providers:",
+    "    credentials:",
+    "      enabled: true",
+    "    google:",
+    "      enabled: false",
   ].join("\n") + "\n";
 }
 
@@ -118,29 +118,18 @@ export function validateConfig(paths: Paths) {
 }
 
 export function validateAuthConfig(cfg: any, env: Record<string, string>) {
-  const auth = resolveAuthConfig(cfg);
+  const enabled = AUTH_PROVIDERS.filter((p) => isProviderEnabled(cfg, p.id));
   const errors: string[] = [];
-  if (auth.googleEnabled && (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET)) {
-    errors.push("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when Google sign-in is enabled");
+  if (!enabled.length) {
+    errors.push("At least one sign-in method must be enabled");
   }
-  if (cfg.auth?.credentials?.enabled === false && !auth.googleEnabled) {
-    errors.push("Password login can only be disabled while Google sign-in is enabled");
+  for (const provider of enabled) {
+    const missing = provider.secrets.filter((s) => !env[s.key]).map((s) => s.key);
+    if (missing.length) {
+      errors.push(`${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} required when ${provider.label} sign-in is enabled`);
+    }
   }
   return errors;
-}
-
-/** Normalises the `auth:` section of config.yaml; missing keys keep today's behaviour. */
-export function resolveAuthConfig(cfg: any) {
-  const googleEnabled = cfg.auth?.google?.enabled === true;
-  const domains = cfg.auth?.google?.allowedDomains;
-  return {
-    googleEnabled,
-    // Disabling passwords without Google would leave students no way in, so it is ignored.
-    credentialsEnabled: cfg.auth?.credentials?.enabled !== false || !googleEnabled,
-    allowedDomains: Array.isArray(domains)
-      ? domains.map((d: unknown) => String(d).trim().toLowerCase()).filter(Boolean)
-      : [],
-  };
 }
 
 export function validateEnv(content: string) {
