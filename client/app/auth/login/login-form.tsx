@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FcGoogle } from "react-icons/fc";
 import { MdEmail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { Loader2 } from "lucide-react";
@@ -14,25 +12,21 @@ import Link from "next/link";
 import { toast } from "@/components/ui/banner";
 import { Eye, EyeOff } from "lucide-react";
 import { authenticate } from "@/actions/auth";
-import type { AuthMethods } from "@/lib/auth-methods";
+import type { AuthMethods } from "@/lib/auth/providers";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
 const SSO_ERRORS: Record<string, string> = {
-  OAuthAccountNotLinked: "This email is already linked to a different Google account.",
-  GoogleDomainNotAllowed: "This Google account is not from an allowed domain. Use your institution account.",
-  GoogleEmailNotVerified: "Your Google email address is not verified.",
-  GoogleSignInDisabled: "Google sign-in is disabled.",
+  OAuthAccountNotLinked: "This email is already linked to a different account.",
+  OAuthEmailNotVerified: "Your email address is not verified with this provider.",
+  OAuthProviderDisabled: "This sign-in method is disabled.",
 };
 
 export default function LoginForm({ methods }: { methods: AuthMethods }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ssoError, setSsoError] = useState("");
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isEmailPasswordLoading, setIsEmailPasswordLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // With password login off, admins still sign in with a password via this toggle.
-  const [adminSignIn, setAdminSignIn] = useState(false);
-  const showPasswordForm = methods.credentials || adminSignIn;
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,20 +88,6 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    if (isGoogleLoading) return;
-
-    setIsGoogleLoading(true);
-    setSsoError("");
-
-    try {
-      await signIn("google", { callbackUrl: "/" });
-    } catch {
-      setSsoError("Failed to initiate Google sign-in. Please try again.");
-      setIsGoogleLoading(false);
-    }
-  };
-
   return (
     <main className="h-screen flex items-center justify-center p-0">
       <div className="grid w-full h-full grid-cols-1 md:grid-cols-2">
@@ -128,7 +108,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
               </Alert>
             )}
 
-            {showPasswordForm && (
+            {methods.credentials && (
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-1">
                   <div className="relative">
@@ -196,66 +176,27 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
                   )}
                 </Button>
 
-                {methods.credentials && (
-                  <div className="text-center">
-                    <span className="text-sm text-muted-foreground">
-                      New user?{" "}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="p-0 text-sm text-primary hover:no-underline cursor-pointer"
-                      onClick={() => router.replace("/auth/register")}
-                    >
-                      Sign Up
-                    </Button>
-                  </div>
-                )}
+                <div className="text-center">
+                  <span className="text-sm text-muted-foreground">
+                    New user?{" "}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 text-sm text-primary hover:no-underline cursor-pointer"
+                    onClick={() => router.replace("/auth/register")}
+                  >
+                    Sign Up
+                  </Button>
+                </div>
               </form>
             )}
 
-            {methods.google && showPasswordForm && (
-              <div className="flex items-center my-6">
-                <hr className="grow border-muted" />
-                <span className="px-4 text-sm text-muted-foreground">OR</span>
-                <hr className="grow border-muted " />
-              </div>
-            )}
-
-            {methods.google && (
-              <Button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading}
-                className="flex items-center justify-center w-full gap-3 bg-background border-2 border-input text-foreground rounded-md py-3 hover:bg-accent"
-                variant="outline"
-              >
-                {isGoogleLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <FcGoogle size={20} />
-                    Continue With Google
-                  </>
-                )}
-              </Button>
-            )}
-
-            {!methods.credentials && (
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="p-0 text-xs text-muted-foreground hover:no-underline cursor-pointer"
-                  onClick={() => setAdminSignIn(!adminSignIn)}
-                >
-                  {adminSignIn ? "Hide admin sign-in" : "Admin sign-in"}
-                </Button>
-              </div>
-            )}
+            <OAuthButtons
+              providers={methods.oauth}
+              divider={methods.credentials}
+              onError={setSsoError}
+            />
 
             <p className="text-xs text-muted-foreground text-center">
               ©2025 All rights reserved

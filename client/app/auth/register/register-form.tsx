@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FcGoogle } from "react-icons/fc";
 import { FaCheckCircle } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
@@ -14,15 +12,16 @@ import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/banner";
 import { Eye, EyeOff } from "lucide-react";
 import { register } from "@/actions/auth";
+import type { AuthMethods } from "@/lib/auth/providers";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 
-export default function RegisterForm({ google }: { google: boolean }) {
+export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [ssoError, setSsoError] = useState("");
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -101,20 +100,6 @@ export default function RegisterForm({ google }: { google: boolean }) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (isGoogleLoading) return;
-
-    setIsGoogleLoading(true);
-    setSsoError("");
-
-    try {
-      await signIn("google", { callbackUrl: "/" });
-    } catch {
-      setSsoError("Failed to initiate Google sign-up. Please try again.");
-      setIsGoogleLoading(false);
     }
   };
 
@@ -246,35 +231,7 @@ export default function RegisterForm({ google }: { google: boolean }) {
                   {loading ? "Loading..." : "Continue"}
                 </Button>
 
-                {google && (
-                  <div className="flex items-center my-2">
-                    <hr className="grow border-muted" />
-                    <span className="px-4 text-sm text-muted-foreground">OR</span>
-                    <hr className="grow border-muted" />
-                  </div>
-                )}
-
-                {google && (
-                  <Button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={isGoogleLoading}
-                    className="flex items-center justify-center w-full gap-3 bg-background border-2 border-input text-foreground rounded-md py-3 hover:bg-accent cursor-pointer z-40 disabled:opacity-50"
-                    variant="outline"
-                  >
-                    {isGoogleLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <FcGoogle size={20} />
-                        Continue With Google
-                      </>
-                    )}
-                  </Button>
-                )}
+                <OAuthButtons providers={oauth} divider onError={setSsoError} />
               </div>
             </form>
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { getAuthMethods } from "@/lib/auth-methods";
+import { getAuthMethods } from "@/lib/auth/providers";
 import LoginForm from "./login-form";
 
 // Auth methods come from runtime env set by the admin daemon, so this must not be prerendered.
