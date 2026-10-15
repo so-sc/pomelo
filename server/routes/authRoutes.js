@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { handleLogin, handleRegister, handleGoogleAuth } = require('../controllers/authCon');
+const { handleLogin, handleRegister, handleOAuth } = require('../controllers/authCon');
 const { authLimiter } = require('../middlewares/rateLimiter');
 
 // Apply rate limiting to all auth routes
@@ -12,7 +12,7 @@ router.post('/login', handleLogin);
 // Register
 router.post('/register', handleRegister);
 
-// Google sign-in: verify the id_token and find, link or provision the user
-router.post('/google', handleGoogleAuth);
+// OAuth sign-in (e.g. /oauth/google): verify the provider's token, then find, link or provision the user
+router.post('/oauth/:provider', handleOAuth);
 
 module.exports = router;

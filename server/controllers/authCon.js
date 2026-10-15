@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const { getAuthConfig, isEmailDomainAllowed } = require('../utils/authConfig');
-const { verifyGoogleIdToken } = require('../helpers/googleIdToken');
+const { CREDENTIALS, isProviderEnabled } = require('../auth/config');
+const { oauthProviders } = require('../auth/providers');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -9,6 +9,10 @@ const handleLogin = async (req, res, next) => {
     try {
         const { SignJWT } = await import('jose');
         const { email, password } = req.body;
+
+        if (!isProviderEnabled(CREDENTIALS)) {
+            return res.status(403).json({ code: 'PasswordLoginDisabled', message: 'Password login is disabled' });
+        }
 
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
@@ -19,7 +23,7 @@ const handleLogin = async (req, res, next) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Google-only accounts have no password to compare against.
+        // Provider-only accounts have no password to compare against.
         if (!user.passwordHash) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -27,11 +31,6 @@ const handleLogin = async (req, res, next) => {
         const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
         if (!passwordsMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        // Admins keep password login so disabling it can never lock them out.
-        if (!getAuthConfig().credentialsEnabled && user.role !== 'admin') {
-            return res.status(403).json({ code: 'PasswordLoginDisabled', message: 'Password login is disabled. Sign in with Google.' });
         }
 
         // Generate JWT token
@@ -67,8 +66,8 @@ const handleRegister = async (req, res, next) => {
         const { SignJWT } = await import('jose');
         const { email, password, name } = req.body;
 
-        if (!getAuthConfig().credentialsEnabled) {
-            return res.status(403).json({ code: 'RegistrationDisabled', message: 'Registration is disabled. Sign in with Google.' });
+        if (!isProviderEnabled(CREDENTIALS)) {
+            return res.status(403).json({ code: 'RegistrationDisabled', message: 'Registration is disabled' });
         }
 
         if (!email || !password || !name) {
@@ -131,37 +130,39 @@ const handleRegister = async (req, res, next) => {
     }
 }
 
-// Checks the verified token's claims against our policy; returns the profile to store or an error.
-const resolveGoogleProfile = (payload, allowedDomains) => {
-    if (!payload?.sub || !payload.email) {
-        return { error: { status: 401, code: 'GoogleSignInFailed', message: 'Google account has no email' } };
+// Checks a provider's verified profile against our policy; returns what to store or an error.
+const resolveProfile = (profile) => {
+    if (!profile?.providerAccountId || !profile.email) {
+        return { error: { status: 401, code: 'OAuthSignInFailed', message: 'Account has no email' } };
     }
-    // Linking by email is only safe when Google vouches that the user owns the mailbox.
-    if (payload.email_verified !== true) {
-        return { error: { status: 403, code: 'GoogleEmailNotVerified', message: 'Google email is not verified' } };
+    // Linking by email is only safe when the provider vouches that the user owns the mailbox.
+    if (profile.emailVerified !== true) {
+        return { error: { status: 403, code: 'OAuthEmailNotVerified', message: 'Email is not verified' } };
     }
-    const email = payload.email.toLowerCase().trim();
-    if (!isEmailDomainAllowed(email, allowedDomains)) {
-        return { error: { status: 403, code: 'GoogleDomainNotAllowed', message: 'This Google account is not from an allowed domain' } };
-    }
-    const name = (payload.name || email.split('@')[0]).trim().slice(0, 100);
-    return { profile: { googleId: payload.sub, email, name, avatar: payload.picture } };
+    const email = profile.email.toLowerCase().trim();
+    const name = (profile.name || email.split('@')[0]).trim().slice(0, 100);
+    return { profile: { providerAccountId: String(profile.providerAccountId), email, name, avatar: profile.avatar } };
 };
 
-const findOrCreateGoogleUser = async ({ googleId, email, name, avatar }) => {
-    const byGoogleId = await User.findOne({ googleId });
-    if (byGoogleId) return byGoogleId;
+const findOrCreateOAuthUser = async (provider, { providerAccountId, email, name, avatar }) => {
+    const account = { provider, providerAccountId };
+    const linked = await User.findOne({ accounts: { $elemMatch: account } });
+    if (linked) return linked;
 
-    // Existing credential account with the same (Google-verified) email: link it.
-    const byEmail = await User.findOne({ email });
-    if (byEmail) {
-        if (byEmail.googleId && byEmail.googleId !== googleId) {
-            return null;
+    if (await User.exists({ email })) {
+        // The provider has proven this person owns the mailbox; nobody else proved anything.
+        // Drop the password so whoever registered this email before them loses access.
+        const user = await User.findOneAndUpdate(
+            { email, 'accounts.provider': { $ne: provider } },
+            { $push: { accounts: account }, $unset: { passwordHash: 1 } },
+            { returnDocument: 'after' }
+        );
+        // Null: the email is already linked to a different account at this provider.
+        if (user && !user.avatar && avatar) {
+            user.avatar = avatar;
+            await user.save();
         }
-        byEmail.googleId = googleId;
-        if (!byEmail.avatar && avatar) byEmail.avatar = avatar;
-        await byEmail.save();
-        return byEmail;
+        return user;
     }
 
     try {
@@ -169,45 +170,40 @@ const findOrCreateGoogleUser = async ({ googleId, email, name, avatar }) => {
             email,
             name,
             avatar,
-            googleId,
-            authProvider: 'google',
+            accounts: [account],
             role: 'user',
             registeredContests: []
         });
     } catch (error) {
         // Two concurrent first sign-ins: the loser picks up the row the winner created.
-        if (error?.code === 11000) return User.findOne({ googleId });
+        if (error?.code === 11000) return User.findOne({ accounts: { $elemMatch: account } });
         throw error;
     }
 };
 
-const handleGoogleAuth = async (req, res, next) => {
+const handleOAuth = async (req, res, next) => {
     try {
-        const { googleEnabled, googleClientId, googleAllowedDomains } = getAuthConfig();
-        if (!googleEnabled) {
-            return res.status(403).json({ code: 'GoogleSignInDisabled', message: 'Google sign-in is disabled' });
+        const providerId = req.params.provider;
+        const provider = Object.hasOwn(oauthProviders, providerId) ? oauthProviders[providerId] : null;
+        if (!provider || !isProviderEnabled(providerId)) {
+            return res.status(403).json({ code: 'OAuthProviderDisabled', message: 'This sign-in method is disabled' });
         }
 
-        const { idToken } = req.body || {};
-        if (typeof idToken !== 'string' || !idToken) {
-            return res.status(400).json({ message: 'idToken is required' });
-        }
-
-        let payload;
+        let verified;
         try {
-            payload = await verifyGoogleIdToken(idToken, googleClientId);
+            verified = await provider.verify(req.body || {}, process.env);
         } catch {
-            return res.status(401).json({ code: 'GoogleSignInFailed', message: 'Invalid Google token' });
+            return res.status(401).json({ code: 'OAuthSignInFailed', message: 'Invalid sign-in token' });
         }
 
-        const { profile, error } = resolveGoogleProfile(payload, googleAllowedDomains);
+        const { profile, error } = resolveProfile(verified);
         if (error) {
             return res.status(error.status).json({ code: error.code, message: error.message });
         }
 
-        const user = await findOrCreateGoogleUser(profile);
+        const user = await findOrCreateOAuthUser(provider.id, profile);
         if (!user) {
-            return res.status(409).json({ code: 'OAuthAccountNotLinked', message: 'This email is linked to a different Google account' });
+            return res.status(409).json({ code: 'OAuthAccountNotLinked', message: 'This email is linked to a different account' });
         }
 
         res.json({
@@ -229,6 +225,6 @@ const handleGoogleAuth = async (req, res, next) => {
 module.exports = {
     handleLogin,
     handleRegister,
-    handleGoogleAuth,
-    _resolveGoogleProfile: resolveGoogleProfile
+    handleOAuth,
+    _resolveProfile: resolveProfile
 }
