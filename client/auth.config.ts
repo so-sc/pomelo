@@ -1,15 +1,8 @@
 
-import { CredentialsSignin, type NextAuthConfig } from "next-auth"
-import Credentials from "next-auth/providers/credentials"
-import Google from "next-auth/providers/google"
-import { z } from "zod"
+import type { NextAuthConfig } from "next-auth"
 import { SignJWT } from "jose"
 import { getBaseUrl } from "@/lib/env";
-import { getAuthMethods, getGoogleAllowedDomains } from "@/lib/auth-methods";
-
-class PasswordLoginDisabled extends CredentialsSignin {
-    code = "PasswordLoginDisabled"
-}
+import { getEnabledProviders, getProviderEntry } from "@/lib/auth/providers";
 
 // Helper to mint a token for the Express Request
 // this minting happens on Next.js server side.
@@ -67,20 +60,21 @@ export const authConfig = {
     },
     callbacks: {
         async signIn({ user, account }: { user: any; account?: any }) {
-            if (account?.provider !== "google") return true;
+            const entry = account ? getProviderEntry(account.provider) : undefined;
+            if (!entry?.toBackendPayload) return true;
 
-            // The backend verifies Google's id_token itself, then finds, links or creates the user.
+            // The backend verifies the provider's token itself, then finds, links or creates the user.
             try {
-                const res = await fetch(`${getBaseUrl()}/api/auth/google`, {
+                const res = await fetch(`${getBaseUrl()}/api/auth/oauth/${entry.id}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken: account.id_token })
+                    body: JSON.stringify(entry.toBackendPayload(account))
                 });
                 const data = await res.json().catch(() => ({}));
 
                 if (res.ok && data.success && data.user) {
                     // Without an adapter Auth.js passes this same object to the jwt callback,
-                    // so the session carries our database id and role, not Google's.
+                    // so the session carries our database id and role, not the provider's.
                     Object.assign(user, {
                         id: String(data.user._id),
                         _id: data.user._id,
@@ -92,10 +86,10 @@ export const authConfig = {
                     return true;
                 }
 
-                return `/auth/login?error=${encodeURIComponent(data.code || "GoogleSignInFailed")}`;
+                return `/auth/login?error=${encodeURIComponent(data.code || "OAuthSignInFailed")}`;
             } catch (error: any) {
-                console.error(`Google auth API error: ${error.message || 'Unknown error'}`);
-                return "/auth/login?error=GoogleSignInFailed";
+                console.error(`OAuth API error: ${error.message || 'Unknown error'}`);
+                return "/auth/login?error=OAuthSignInFailed";
             }
         },
         authorized({ auth, request }: { auth: any; request: any }) {
@@ -170,64 +164,5 @@ export const authConfig = {
             return session
         },
     },
-    providers: [
-        Credentials({
-            async authorize(credentials) {
-                const parsedCredentials = z
-                    .object({ email: z.string().email(), password: z.string().min(6) })
-                    .safeParse(credentials);
-
-                if (parsedCredentials.success) {
-                    const { email, password } = parsedCredentials.data;
-
-                    try {
-                        const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email, password })
-                        });
-
-                        const data = await res.json();
-
-                        if (res.ok && data.success && data.user) {
-                            return data.user;
-                        }
-
-                        if (data.code === "PasswordLoginDisabled") {
-                            throw new PasswordLoginDisabled();
-                        }
-
-                        return null;
-                    } catch (error: any) {
-                        if (error instanceof PasswordLoginDisabled) throw error;
-                        console.error(`Auth API error: ${error.message || 'Unknown error'}`);
-                        return null;
-                    }
-                }
-
-
-                return null;
-            },
-        }),
-        ...googleProviders(),
-    ],
+    providers: getEnabledProviders().map((p) => p.create()),
 } satisfies NextAuthConfig
-
-function googleProviders() {
-    if (!getAuthMethods().google) return [];
-
-    const domains = getGoogleAllowedDomains();
-    return [
-        Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            authorization: {
-                params: {
-                    prompt: "select_account",
-                    // `hd` only preselects the account; the backend enforces the domain list.
-                    ...(domains.length === 1 ? { hd: domains[0] } : {}),
-                },
-            },
-        }),
-    ];
-}
