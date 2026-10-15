@@ -14,6 +14,7 @@ const {
   endContest,
   forceEndContest,
   getAdminContestResults,
+  getAdminContestFeedback,
   deleteContest,
   getAdminStats,
   importQuestions,
@@ -65,6 +66,7 @@ router.post("/tests/:id/end", requireAuth(), isAdmin, endContest);
 router.post("/tests/:id/force-end", requireAuth(), isAdmin, forceEndContest);
 router.delete("/tests/:id", requireAuth(), isAdmin, deleteContest);
 router.get("/tests/:id/result", requireAuth(), isAdmin, getAdminContestResults);
+router.get("/tests/:id/feedback", requireAuth(), isAdmin, getAdminContestFeedback);
 router.get("/tests/:id/export/scores", requireAuth(), isAdmin, exportScores);
 router.get("/tests/:id/export/submissions", requireAuth(), isAdmin, exportSubmissions);
 

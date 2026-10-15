@@ -8,7 +8,9 @@ const {
   startTest,
   getContestData,
   endTest,
-  getLeaderboard
+  getLeaderboard,
+  getFeedback,
+  submitFeedback,
 } = require("../controllers/contestCon");
 
 const {
@@ -18,7 +20,7 @@ const {
 } = require("../controllers/submitCon");
 
 const { validateContest } = require("../middlewares/contestMiddleware");
-const { submissionLimiter, mcqLimiter, joinLimiter } = require("../middlewares/rateLimiter");
+const { submissionLimiter, mcqLimiter, joinLimiter, feedbackLimiter } = require("../middlewares/rateLimiter");
 
 const router = express.Router();
 
@@ -30,6 +32,9 @@ router.post('/join', joinLimiter, validateJoinId);
 // --- ADMIN ONLY ---
 // Leaderboard — ranked scores after contest ends, name only (no emails)
 router.get('/:id/leaderboard', requireAuth(), isAdmin, getLeaderboard);
+
+router.get('/:id/feedback', requireAuth(), validateContest(), getFeedback);
+router.post('/:id/feedback', requireAuth(), feedbackLimiter, validateContest(), submitFeedback);
 
 // Landing Page (Public test info) - Just needs to exist
 // NOTE: This must come AFTER specific :id/something routes

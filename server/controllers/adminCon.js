@@ -1,6 +1,7 @@
 const Question = require('../models/Question');
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
+const { isValidObjectId } = require('mongoose');
 const { connectDB } = require('../helpers/dbCon');
 const { getJudge, validateProblemConfig } = require("@pomelo/code-gen");
 const {
@@ -900,6 +901,54 @@ const importQuestions = async (req, res, next) => {
     }
 };
 
+const getAdminContestFeedback = async (req, res, next) => {
+    try {
+        if (!isValidObjectId(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'Invalid contest ID' });
+        }
+        const contest = await Contest.findById(req.params.id).select('_id').lean();
+        if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
+
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+        const [result] = await Submission.aggregate([
+            { $match: { contest: contest._id, status: 'Completed', feedback: { $exists: true } } },
+            { $facet: {
+                stats: [{ $group: {
+                    _id: null,
+                    count: { $sum: 1 },
+                    difficulty: { $avg: '$feedback.difficulty' },
+                    experience: { $avg: '$feedback.experience' },
+                } }],
+                comments: [
+                    { $match: { 'feedback.comment': { $type: 'string', $ne: '' } } },
+                    { $sort: { 'feedback.submittedAt': -1, _id: -1 } },
+                    { $skip: (page - 1) * limit },
+                    { $limit: limit },
+                    { $project: { feedback: 1 } },
+                ],
+                commentCount: [
+                    { $match: { 'feedback.comment': { $type: 'string', $ne: '' } } },
+                    { $count: 'total' },
+                ],
+            } },
+        ]);
+        const stats = result?.stats?.[0];
+        return res.json({
+            success: true,
+            count: stats?.count || 0,
+            averageDifficulty: stats?.difficulty ?? null,
+            averageExperience: stats?.experience ?? null,
+            comments: result?.comments || [],
+            totalComments: result?.commentCount?.[0]?.total || 0,
+            page,
+            limit,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createProblem,
     updateProblem,
@@ -911,6 +960,7 @@ module.exports = {
     endContest,
     forceEndContest,
     getAdminContestResults,
+    getAdminContestFeedback,
     deleteQuestion,
     deleteContest,
     getAdminStats,

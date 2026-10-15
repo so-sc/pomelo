@@ -22,6 +22,7 @@ import { notFound } from "next/navigation";
 import { LocalTime } from "@/components/ui/local-time";
 import ExportResultsButtons from "@/components/admin/test/export-results-buttons";
 import { Pagination } from "@/components/admin/pagination";
+import FeedbackSummary from "@/components/admin/test/feedback-summary";
 
 const RESULTS_PAGE_SIZE = 25;
 
@@ -79,7 +80,9 @@ export default async function AdminTestResultPage({
     searchParams: Promise<Record<string, string | undefined>>;
 }) {
     const { id } = await params;
-    const page = Math.max(1, Number((await searchParams).page) || 1);
+    const query = await searchParams;
+    const page = Math.max(1, Number(query.page) || 1);
+    const feedbackPage = Math.max(1, parseInt(query.feedbackPage || '1', 10) || 1);
 
     const response: ResultsResponse = await fetchBackend(
         `/api/admin/tests/${id}/result?page=${page}&limit=${RESULTS_PAGE_SIZE}`
@@ -137,6 +140,8 @@ export default async function AdminTestResultPage({
                     </div>
                     <ExportResultsButtons contestId={data.id} contestTitle={data.testName} />
                 </header>
+
+                <FeedbackSummary testId={id} page={feedbackPage} />
 
                 <section className="space-y-6">
                     <div className="flex items-center justify-between">

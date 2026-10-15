@@ -29,6 +29,15 @@ const submissionSchema = new mongoose.Schema({
     trim: true,
   },
   submittedAt: Date,
+  feedback: {
+    type: new mongoose.Schema({
+      difficulty: { type: Number, required: true, min: 1, max: 5, validate: Number.isInteger },
+      experience: { type: Number, required: true, min: 1, max: 5, validate: Number.isInteger },
+      comment: { type: String, trim: true, maxlength: 2000, default: '' },
+      submittedAt: { type: Date, default: Date.now },
+    }, { _id: false }),
+    default: undefined,
+  },
   totalScore: {
     type: Number,
     default: 0,

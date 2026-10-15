@@ -4,7 +4,8 @@
     "build": "esbuild index.js --bundle --platform=node --target=node20 --minify --outfile=dist/index.js",
     "start": "node dist/index.js",
     "dev": "nodemon index.js",
-    "test": "node --test \"tests/**/*.test.js\"",
+    "test": "node --require ts-node/register/transpile-only --test \"tests/**/*.test.js\" \"tests/**/*.test.ts\"",
+    "test:integration": "node --require ts-node/register/transpile-only --test tests/feedback.integration.ts",
     "clean": "rm -rf node_modules dist"
   },
   "dependencies": {
