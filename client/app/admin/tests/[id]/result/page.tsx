@@ -18,10 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { LocalTime } from "@/components/ui/local-time";
 import ExportResultsButtons from "@/components/admin/test/export-results-buttons";
 import { Pagination } from "@/components/admin/pagination";
+import { ResultFilterBar } from "@/components/admin/test/result-filter-bar";
+import { SearchFocusKeeper } from "@/components/admin/test/search-focus-keeper";
+import { Suspense } from "react";
 
 const RESULTS_PAGE_SIZE = 25;
 
@@ -68,6 +71,7 @@ interface ResultsResponse {
     };
     results: MongoSubmission[];
     total: number;
+    wholeTestParticipants: number;
     averageScore: number;
 }
 
@@ -79,16 +83,39 @@ export default async function AdminTestResultPage({
     searchParams: Promise<Record<string, string | undefined>>;
 }) {
     const { id } = await params;
-    const page = Math.max(1, Number((await searchParams).page) || 1);
+    const sp = await searchParams;
+    const page = Math.max(1, Number(sp.page) || 1);
+
+    const qs = new URLSearchParams({
+        page: String(page),
+        limit: String(RESULTS_PAGE_SIZE),
+    });
+    if (sp.q) qs.set("q", sp.q);
+    if (sp.scoreMin) qs.set("scoreMin", sp.scoreMin);
+    if (sp.scoreMax) qs.set("scoreMax", sp.scoreMax);
+    if (sp.date) qs.set("date", sp.date);
+    if (sp.sort) qs.set("sort", sp.sort);
 
     const response: ResultsResponse = await fetchBackend(
-        `/api/admin/tests/${id}/result?page=${page}&limit=${RESULTS_PAGE_SIZE}`
+        `/api/admin/tests/${id}/result?${qs.toString()}`
     );
     if (!response?.success) {
         return notFound();
     }
 
-    const { contest, results, total, averageScore } = response;
+    const { contest, results, total, wholeTestParticipants, averageScore } = response;
+
+    // Handle edge cases for manual URL manipulation (page beyond limits)
+    const pages = Math.ceil(total / RESULTS_PAGE_SIZE);
+    if (page > 1 && total > 0 && page > pages) {
+        const qs = new URLSearchParams(sp as Record<string, string>);
+        qs.set("page", String(pages));
+        redirect(`/admin/tests/${id}/result?${qs.toString()}`);
+    } else if (page > 1 && total === 0) {
+        const qs = new URLSearchParams(sp as Record<string, string>);
+        qs.delete("page");
+        redirect(`/admin/tests/${id}/result?${qs.toString()}`);
+    }
 
     const participants: Participant[] = results
         .filter(sub => sub && sub.user) // Filter out corrupt data
@@ -100,18 +127,25 @@ export default async function AdminTestResultPage({
             submittedAt: sub.submittedAt
         }));
 
-    // Stats now cover the whole result set, not just this page.
     const data: TestResult = {
         id: contest._id,
         testName: contest.title,
         description: contest.description,
         participants,
         stats: {
-            totalParticipants: total,
+            totalParticipants: wholeTestParticipants,
             averageScore,
             maxScore: contest.maxScore
         }
     };
+
+    // "X of Y" badge logic: Sort alone does not trigger it
+    const isFilterActive = !!(
+        sp.q || 
+        sp.scoreMin ||
+        sp.scoreMax || 
+        (sp.date && sp.date !== "any")
+    );
 
     return (
         <div className="flex-1 overflow-auto bg-background h-full">
@@ -164,10 +198,16 @@ export default async function AdminTestResultPage({
                         <div className="flex items-center gap-3">
                             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground">Student Submissions</h2>
                             <Badge variant="secondary" className="rounded-full px-3 py-0">
-                                {data.stats.totalParticipants} total
+                                {isFilterActive ? `${total} of ${wholeTestParticipants}` : `${wholeTestParticipants} total`}
                             </Badge>
                         </div>
                     </div>
+
+                    <SearchFocusKeeper />
+
+                    <Suspense fallback={null}>
+                        <ResultFilterBar maxScore={contest.maxScore} />
+                    </Suspense>
 
                     <Card className="overflow-hidden border-border bg-card shadow-sm">
                         <Table>
@@ -223,13 +263,24 @@ export default async function AdminTestResultPage({
                                                 </TableCell>
                                             </TableRow>
                                         ))
+                                    ) : wholeTestParticipants === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="py-20 text-center text-muted-foreground font-medium">
+                                                No submissions recorded for this test yet.
+                                            </TableCell>
+                                        </TableRow>
                                     ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="py-20 text-center text-muted-foreground font-medium">
-                                            No submissions recorded for this test yet.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="py-20 text-center text-muted-foreground font-medium">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <span>No submissions match your filters.</span>
+                                                    <Link href={`/admin/tests/${data.id}/result`} className="text-primary hover:underline text-sm font-semibold">
+                                                        Clear filters
+                                                    </Link>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                             </TableBody>
                         </Table>
                     </Card>
