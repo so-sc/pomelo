@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/banner";
-import { AlertCircle, Calendar, Hourglass, CalendarX2, ListChecks } from "lucide-react";
+import { AlertCircle, Calendar, Hourglass, CalendarX2, ListChecks, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getContestLanding, startTest, getContestData } from "@/actions/contest";
 import { clearAttemptIntegrityState } from "@/lib/attempt-integrity";
@@ -31,6 +31,8 @@ export default function ContestLanding() {
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [justSubmitted, setJustSubmitted] = useState(false);
 
   const updateCountdown = useCallback((startTime: string) => {
     const start = new Date(startTime).getTime();
@@ -64,7 +66,12 @@ export default function ContestLanding() {
         const isEnded = result.data.isEnded || now > end;
         setDetails({ ...result.data, isEnded });
       } else {
-        toast.error(result.message || "Failed to fetch data");
+        // contestMiddleware flags completed attempts with isCompleted: true
+        if (result.isCompleted) {
+          setAlreadyCompleted(true);
+        } else {
+          toast.error(result.message || "Failed to fetch data");
+        }
       }
     } catch {
       toast.error("Failed to load instructions");
@@ -76,6 +83,41 @@ export default function ContestLanding() {
   useEffect(() => {
     if (testid && status === "authenticated") fetchInstructions();
   }, [testid, status, fetchInstructions]);
+
+  // Detect a completed attempt proactively: getContestData is gated by
+  // checkAttemptStatus: 'NotCompleted', so the server answers 403 with
+  // isCompleted: true for anyone who already finished the test. This keeps
+  // returning users from ever seeing the "Start Assessment" button.
+  useEffect(() => {
+    if (status !== "authenticated" || !testid || alreadyCompleted) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getContestData(testid as string);
+        if (cancelled) return;
+        if (data?.isCompleted || data?.data?.isCompleted) {
+          setAlreadyCompleted(true);
+        }
+      } catch {
+        // ignore — the start flow also surfaces completion if it happens
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [testid, status, alreadyCompleted]);
+
+  // If the user landed here right after submitting, show the persistent
+  // success panel instead of relying on the short-lived toast.
+  useEffect(() => {
+    if (!testid) return;
+    try {
+      if (sessionStorage.getItem(`pomelo_just_submitted_${testid}`)) {
+        setJustSubmitted(true);
+        sessionStorage.removeItem(`pomelo_just_submitted_${testid}`);
+      }
+    } catch {
+      // sessionStorage unavailable — the probe above still catches completion
+    }
+  }, [testid]);
 
   useEffect(() => {
     if (!details || details.canStart || details.isEnded) return;
@@ -122,7 +164,11 @@ export default function ContestLanding() {
           router.push(`/attempt/test/${testid}/session`); // fallback
         }
       } else {
-        toast.error(result.error || result.message || "Failed to start session");
+        if (result.isCompleted) {
+          setAlreadyCompleted(true);
+        } else {
+          toast.error(result.error || result.message || "Failed to start session");
+        }
         if (document.fullscreenElement && document.exitFullscreen) {
           try {
             await document.exitFullscreen();
@@ -247,7 +293,31 @@ export default function ContestLanding() {
               <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
             </div>
 
-            {details?.isEnded ? (
+            {justSubmitted || alreadyCompleted ? (
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-500">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {justSubmitted ? "Submitted Successfully" : "Test Completed"}
+                </div>
+                <h3 className="text-xl font-semibold tracking-tight">
+                  {justSubmitted
+                    ? "Test submitted successfully!"
+                    : "You&apos;ve already completed this assessment"}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {justSubmitted
+                    ? "Your responses have been recorded. You can safely close this tab or head back to your dashboard."
+                    : "Your submission has been recorded. This page is read-only now — nothing else to do."}
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full h-14 rounded-full"
+                  onClick={() => router.push("/")}
+                >
+                  Back to Dashboard
+                </Button>
+              </div>
+            ) : details?.isEnded ? (
               <div className="space-y-6">
                 <div className="inline-flex items-center gap-2 text-sm font-medium text-destructive">
                   <span className="w-2 h-2 rounded-full bg-destructive"></span>

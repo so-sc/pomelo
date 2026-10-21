@@ -58,6 +58,15 @@ export function useTestCompletion() {
         console.error("Failed to clear local storage drafts", err);
       }
 
+      // Remember that this session just submitted successfully, so the
+      // landing page can show a persistent success panel instead of a
+      // toast that disappears after a few seconds.
+      try {
+        sessionStorage.setItem(`pomelo_just_submitted_${testId}`, String(Date.now()));
+      } catch (err) {
+        console.error("Failed to record submission flag", err);
+      }
+
       if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(err => console.error("Error exiting fullscreen:", err));
       }

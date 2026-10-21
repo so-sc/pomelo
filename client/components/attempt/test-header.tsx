@@ -10,6 +10,7 @@ import { getContestData } from "@/actions/contest";
 import { toast } from "@/components/ui/banner";
 import { readViolationCount, MAX_VIOLATIONS } from "@/lib/attempt-integrity";
 import TestTimer from "./test-timer";
+import SubmitConfirmDialog from "./submit-confirm-dialog";
 
 interface TestHeaderProps {
   initialTimeRemaining: number;
@@ -21,6 +22,7 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   const { data: session } = useSession();
   const { completeTest, isSubmitting } = useTestCompletion();
   const [violations, setViolations] = React.useState(0);
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
 
   // Sync with cross-tab/local violation updates
   React.useEffect(() => {
@@ -70,10 +72,13 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
     return () => clearInterval(interval);
   }, [params.testid, router]);
 
-  const handleFinish = async () => {
+  const handleFinish = () => {
     if (!session?.backendToken || !params.testid) return;
-    if (!confirm("Are you sure you want to finish the test? You cannot change your answers after this.")) return;
+    setShowConfirmDialog(true);
+  };
 
+  const handleConfirmFinish = async () => {
+    setShowConfirmDialog(false);
     await completeTest({ replace: false });
   };
 
@@ -96,6 +101,12 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
         {isSubmitting ? "Finishing..." : "Submit"}
         {!isSubmitting && <BadgeCheck className="h-4 w-4 ml-2" />}
       </Button>
+      <SubmitConfirmDialog
+        open={showConfirmDialog}
+        isSubmitting={isSubmitting}
+        onConfirm={handleConfirmFinish}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
     </div>
   );
 }

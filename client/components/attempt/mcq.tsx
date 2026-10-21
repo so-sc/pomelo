@@ -13,6 +13,8 @@ import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/banner";
 
 import { useAttemptRuntime } from "./attempt-runtime";
+import SubmitConfirmDialog from "./submit-confirm-dialog";
+import { useTestCompletion } from "./use-test-completion";
 
 interface MCQScreenProps {
   problem: MCQProblem;
@@ -30,6 +32,10 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the latest selection for debounced flush
   const pendingSelectionRef = useRef<string[] | null>(null);
+  // Track the latest in-flight save so Finish can await it before submitting
+  const lastSaveRef = useRef<Promise<void> | null>(null);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  const { completeTest, isSubmitting } = useTestCompletion();
 
   // Create sorting logic matching TestHeader: MCQs first, then Coding
   const mcqProblems = problems.filter((p) => p.type === "mcq");
@@ -75,7 +81,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
       debounceTimerRef.current = null;
     }
     if (pendingSelectionRef.current !== null) {
-      doSave(pendingSelectionRef.current);
+      lastSaveRef.current = doSave(pendingSelectionRef.current);
     }
   }, [doSave]);
 
@@ -86,7 +92,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     }
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      doSave(answers);
+      lastSaveRef.current = doSave(answers);
     }, DEBOUNCE_MS);
   }, [doSave]);
 
@@ -110,7 +116,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
       debounceTimerRef.current = null;
     }
     pendingSelectionRef.current = null;
-    doSave(newSelection);
+    lastSaveRef.current = doSave(newSelection);
   };
 
   const handleMultipleSelect = (value: string) => {
@@ -133,6 +139,27 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     flushPending();
     if (nextProblem) {
       router.push(`/attempt/test/${params.testid}/question/${nextProblem.id}`);
+    }
+  };
+
+  const handleFinishClick = () => {
+    setShowSubmitDialog(true);
+  };
+
+  const handleFinishConfirm = async () => {
+    // Flush any debounced selection so it lands before the test ends
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (pendingSelectionRef.current !== null) {
+      await doSave(pendingSelectionRef.current);
+    }
+    // Await an in-flight save (e.g. the debounce fired while the dialog was open)
+    await lastSaveRef.current?.catch(() => {});
+    const result = await completeTest();
+    if (result.success) {
+      setShowSubmitDialog(false);
     }
   };
 
@@ -272,13 +299,19 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
           </Button>
           <Button
             className="px-6 font-medium"
-            onClick={handleNext}
-            disabled={!nextProblem}
+            onClick={nextProblem ? handleNext : handleFinishClick}
           >
             {nextProblem ? "Next" : "Finish"}
           </Button>
         </div>
       </Card>
+
+      <SubmitConfirmDialog
+        open={showSubmitDialog}
+        isSubmitting={isSubmitting}
+        onConfirm={handleFinishConfirm}
+        onCancel={() => setShowSubmitDialog(false)}
+      />
     </div>
   );
 }
