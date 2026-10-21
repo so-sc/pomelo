@@ -127,7 +127,6 @@ export default function IntegrityMonitor() {
     const result = await completeTest({
       forced: true,
       autoSubmitReason: AUTO_SUBMIT_REASON,
-      redirectTo: "/",
       replace: true,
       successMessage: "Test submitted after 3 violations.",
       errorMessage: "Submission failed. Try again to finish the test.",

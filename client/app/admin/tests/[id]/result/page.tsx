@@ -4,6 +4,7 @@ import {
     Users,
     Award,
     ExternalLink,
+    MessageSquare,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,7 +80,8 @@ export default async function AdminTestResultPage({
     searchParams: Promise<Record<string, string | undefined>>;
 }) {
     const { id } = await params;
-    const page = Math.max(1, Number((await searchParams).page) || 1);
+    const query = await searchParams;
+    const page = Math.max(1, Number(query.page) || 1);
 
     const response: ResultsResponse = await fetchBackend(
         `/api/admin/tests/${id}/result?page=${page}&limit=${RESULTS_PAGE_SIZE}`
@@ -135,7 +137,10 @@ export default async function AdminTestResultPage({
                             </p>
                         </div>
                     </div>
-                    <ExportResultsButtons contestId={data.id} contestTitle={data.testName} />
+                    <div className="flex flex-wrap gap-3">
+                        <Button variant="outline" asChild><Link href={`/admin/tests/${data.id}/feedback`}><MessageSquare className="size-4" />View feedback</Link></Button>
+                        <ExportResultsButtons contestId={data.id} contestTitle={data.testName} />
+                    </div>
                 </header>
 
                 <section className="space-y-6">

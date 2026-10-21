@@ -11,9 +11,10 @@ interface Props {
   page: number;
   total: number;
   pageSize?: number;
+  pageParam?: string;
 }
 
-export function Pagination({ page, total, pageSize = PAGE_SIZE }: Props) {
+export function Pagination({ page, total, pageSize = PAGE_SIZE, pageParam = "page" }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -23,8 +24,8 @@ export function Pagination({ page, total, pageSize = PAGE_SIZE }: Props) {
 
   const goTo = (next: number) => {
     const params = new URLSearchParams(searchParams);
-    if (next <= 1) params.delete("page");
-    else params.set("page", String(next));
+    if (next <= 1) params.delete(pageParam);
+    else params.set(pageParam, String(next));
 
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);

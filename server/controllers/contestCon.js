@@ -1,5 +1,7 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
+const Submission = require('../models/Submissions');
+const { z } = require('zod');
 const { toProblemView } = require('../utils/toProblemView');
 
 // Stands in for "no submittedAt" so Ongoing entries sort last, matching the
@@ -386,6 +388,58 @@ const endTest = async (req, res, next) => {
     }
 };
 
+const feedbackSchema = z.object({
+    difficulty: z.number().int().min(1).max(5),
+    experience: z.number().int().min(1).max(5),
+    comment: z.string().trim().max(2000).optional().default(''),
+}).strict();
+
+// Feedback remains available after the contest closes, but only for the caller's completed attempt.
+const getFeedback = async (req, res, next) => {
+    try {
+        const attempt = await Submission.findOne({ contest: req.params.id, user: req.user.id })
+            .select('status feedback').lean();
+        if (!attempt) return res.status(404).json({ success: false, error: 'Test attempt not found' });
+        if (attempt.status !== 'Completed') {
+            return res.status(403).json({ success: false, error: 'Submit your test before leaving feedback' });
+        }
+        return res.json({ success: true, title: req.contest.title, feedback: attempt.feedback || null });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const submitFeedback = async (req, res, next) => {
+    try {
+        const parsed = feedbackSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return res.status(400).json({ success: false, error: 'Choose ratings from 1 to 5 and keep comments within 2,000 characters.' });
+        }
+
+        // Atomic first-write wins: retries and concurrent requests cannot create duplicates or overwrite feedback.
+        const attempt = await Submission.findOneAndUpdate({
+            contest: req.params.id,
+            user: req.user.id,
+            status: 'Completed',
+            feedback: { $exists: false },
+        }, { $set: { feedback: { ...parsed.data, submittedAt: new Date() } } }, {
+            returnDocument: 'after',
+            runValidators: true,
+        }).select('feedback');
+
+        if (attempt) return res.status(201).json({ success: true, feedback: attempt.feedback });
+
+        const existing = await Submission.findOne({ contest: req.params.id, user: req.user.id }).select('status').lean();
+        if (!existing) return res.status(404).json({ success: false, error: 'Test attempt not found' });
+        if (existing.status !== 'Completed') {
+            return res.status(403).json({ success: false, error: 'Submit your test before leaving feedback' });
+        }
+        return res.status(409).json({ success: false, alreadySubmitted: true, error: 'Feedback has already been submitted' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     validateJoinId,
     manageViolations,
@@ -394,5 +448,7 @@ module.exports = {
     getContestData,
     startTest,
     endTest,
-    getLeaderboard
+    getLeaderboard,
+    getFeedback,
+    submitFeedback,
 };

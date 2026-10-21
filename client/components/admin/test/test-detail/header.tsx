@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   BarChart3,
+  MessageSquare,
   CheckCircle,
   XCircle,
   Play,
@@ -78,6 +79,7 @@ export function TestDetailHeader({ test }: TestDetailHeaderProps) {
               Open
             </Button>
           </Link>
+          <Button variant="outline" asChild><Link href={`/admin/tests/${test.id}/feedback`}><MessageSquare className="size-4" />Feedback</Link></Button>
           <Link href={`/admin/tests/${test.id}/result`}>
             <Button className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-lg transition-colors w-full sm:w-auto">
               <BarChart3 className="h-4 w-4" />
