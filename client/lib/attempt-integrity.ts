@@ -67,6 +67,20 @@ export function clearAttemptIntegrityState(testId: string) {
   resetAttemptObfuscation();
 }
 
+// Everything a previous attempt left in this browser: violation count, code drafts and
+// the question tray's progress (any user's), so the next attempt starts clean.
+export function clearAttemptStorage(testId: string) {
+  if (!isBrowser()) return;
+  clearAttemptIntegrityState(testId);
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("pomelo_draft_") || key.startsWith(`pomelo_progress_${testId}`)) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch { /* localStorage unavailable */ }
+}
+
 export async function clearClipboard() {
   if (!isBrowser() || !navigator.clipboard?.writeText) return;
   try {

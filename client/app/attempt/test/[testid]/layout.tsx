@@ -67,7 +67,7 @@ export default async function TestLayout({
 
   return (
     <main className="w-screen h-screen pt-12 flex">
-      <ContestAttemptRuntime contestId={testid} initialProgress={initialProgress}>
+      <ContestAttemptRuntime contestId={testid} userId={session?.user?.id} initialProgress={initialProgress}>
         <IntegrityMonitor />
         <TestHeader initialTimeRemaining={initialTimeRemaining} />
         <QuestionNav problems={problemMeta} />

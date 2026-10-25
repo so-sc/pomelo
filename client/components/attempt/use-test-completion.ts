@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/banner";
 import {
   AUTO_SUBMIT_REASON,
-  clearAttemptIntegrityState,
+  clearAttemptStorage,
 } from "@/lib/attempt-integrity";
 
 import { endTest } from "@/actions/contest";
@@ -46,17 +46,7 @@ export function useTestCompletion() {
         return { success: false as const, data };
       }
 
-      clearAttemptIntegrityState(testId);
-
-      try {
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith("pomelo_draft_")) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (err) {
-        console.error("Failed to clear local storage drafts", err);
-      }
+      clearAttemptStorage(testId);
 
       // Remember that this session just submitted successfully, so the
       // landing page can show a persistent success panel instead of a

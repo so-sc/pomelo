@@ -124,14 +124,17 @@ async function streamExecution(
 
 export function ContestAttemptRuntime({
   contestId,
+  userId,
   initialProgress,
   children,
 }: {
   contestId: string;
+  userId?: string;
   initialProgress: Record<string, QuestionProgress>;
   children: React.ReactNode;
 }) {
-  const storageKey = `pomelo_progress_${contestId}`;
+  // Per user: on a shared machine, another account's tray must not leak in.
+  const storageKey = `pomelo_progress_${contestId}_${userId ?? "anon"}`;
   const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
 
   useEffect(() => {
