@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+const { hashPassword, verifyPassword } = require('../utils/passwords');
 const User = require('../models/User');
 const { CREDENTIALS, isProviderEnabled } = require('../auth/config');
 const { oauthProviders } = require('../auth/providers');
@@ -28,7 +28,7 @@ const handleLogin = async (req, res, next) => {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
-        const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
+        const passwordsMatch = await verifyPassword(password, user.passwordHash);
         if (!passwordsMatch) {
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
@@ -89,7 +89,7 @@ const handleRegister = async (req, res, next) => {
             return res.status(409).json({ success: false, error: 'Email is already registered' });
         }
 
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await hashPassword(password, 10);
 
         const newUser = new User({
             name: name.trim(),

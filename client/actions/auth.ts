@@ -1,7 +1,8 @@
 "use server";
 
 import { signIn } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
+import { LOGIN_RATE_LIMITED, LOGIN_UNAVAILABLE } from "@/lib/auth/providers/credentials";
 import { z } from "zod";
 import { getBaseUrl } from "@/lib/env";
 import { clientIpHeaders } from "@/lib/client-ip";
@@ -23,8 +24,12 @@ export async function authenticate(prevState: string | undefined, formData: Form
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
-                case "CredentialsSignin":
+                case "CredentialsSignin": {
+                    const { code } = error as CredentialsSignin;
+                    if (code === LOGIN_RATE_LIMITED) return "Too many sign-in attempts. Please wait a minute and try again.";
+                    if (code === LOGIN_UNAVAILABLE) return "The server is busy or unreachable. Please try again in a moment.";
                     return "Invalid credentials.";
+                }
                 default:
                     return "Something went wrong.";
             }
