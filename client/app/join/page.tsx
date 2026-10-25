@@ -15,7 +15,7 @@ import { joinTest } from "@/actions/contest";
 
 export default function JoinContestPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 

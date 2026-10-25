@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaCheckCircle } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/banner";
 import { Eye, EyeOff } from "lucide-react";
 import { register } from "@/actions/auth";

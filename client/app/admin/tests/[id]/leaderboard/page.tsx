@@ -2,7 +2,7 @@ import React from "react";
 import { auth } from "@/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User, BarChart3, AlertCircle, Award } from "lucide-react";
+import { ArrowLeft, User, AlertCircle, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeaderboardTable } from "@/components/admin/test/leaderboard-table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";

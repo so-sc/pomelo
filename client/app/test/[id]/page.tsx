@@ -25,7 +25,7 @@ interface ContestDetails {
 export default function ContestLanding() {
   const { id: testid } = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   const [details, setDetails] = useState<ContestDetails | null>(null);
   const [loading, setLoading] = useState(true);

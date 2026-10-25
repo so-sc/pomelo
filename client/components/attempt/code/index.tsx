@@ -36,12 +36,13 @@ export function CodeScreen({
   const [code, setCode] = useState(problem.savedCode || (problem.boilerplateCode && availableLanguages.length > 0 ? (problem.boilerplateCode[initialLanguage as keyof typeof problem.boilerplateCode] || "") : "// Start coding here"));
   const isMounted = useIsClient();
 
+  const { id: problemId, boilerplateCode } = problem;
   const draftKey = React.useCallback(
     (lang: string) => {
-      const stub = problem.boilerplateCode?.[lang as keyof typeof problem.boilerplateCode] || "";
-      return `${draftKeyPrefix}_${problem.id}_${lang}_${fingerprint(stub)}`;
+      const stub = boilerplateCode?.[lang as keyof typeof boilerplateCode] || "";
+      return `${draftKeyPrefix}_${problemId}_${lang}_${fingerprint(stub)}`;
     },
-    [problem.id, problem.boilerplateCode, draftKeyPrefix]
+    [problemId, boilerplateCode, draftKeyPrefix]
   );
 
   // If we do not have a saved code from the server for the current initial language, check local storage

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useIsClient } from "@/hooks/use-is-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,10 +98,6 @@ export default function IntegrityMonitor() {
   const isAutoSubmittingRef = useRef(false);
   const isGracePeriodRef = useRef(true);
 
-  const remainingWarnings = useMemo(
-    () => Math.max(0, MAX_VIOLATIONS - violationCount),
-    [violationCount]
-  );
 
   const clearTimers = useCallback(() => {
     if (blurTimeoutRef.current) {

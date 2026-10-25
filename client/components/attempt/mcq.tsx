@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Problem, MCQProblem } from "@/types/problem";
 import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/banner";
 
 import { useAttemptRuntime } from "./attempt-runtime";
@@ -203,7 +202,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!isMultiple ? (
                 <RadioGroup
-                  value={selected[0]}
+                  value={selected[0] ?? ""}
                   onValueChange={handleSingleSelect}
                   className="contents"
                 >
