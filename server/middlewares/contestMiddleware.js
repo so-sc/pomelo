@@ -3,6 +3,7 @@ const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
 const { getOrSet } = require('../utils/simpleCache');
 const { isManuallyEnded, attemptDeadline } = require('../utils/contestTime');
+const { finalizeExpiredAttempts } = require('../utils/expireAttempts');
 
 const CONTEST_TTL_MS = 60 * 60_000;
 
@@ -75,6 +76,13 @@ const validateContest = (options = {}) => async (req, res, next) => {
             // already mid-attempt keep going until their own deadline — that's the
             // whole point of a "soft" end vs. force-ending (which completes every
             // Ongoing submission up front, so activeSubmission is null afterward).
+            // The candidate's own time ran out without a submit (tab closed, network
+            // dropped): complete it now, so they see it as submitted, not resumable.
+            if (activeSubmission && now > deadline) {
+                await finalizeExpiredAttempts(contest, now);
+                return res.status(403).json({ success: false, isCompleted: true, error: 'Your time is up. The test has been submitted.' });
+            }
+
             if ((isManuallyEnded(contest) && !activeSubmission) || now > deadline) {
                 return res.status(403).json({ success: false, error: 'Contest has ended' });
             }

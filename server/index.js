@@ -8,6 +8,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 const { connectDB } = require("./helpers/dbCon");
+const { startExpirySweep } = require("./utils/expireAttempts");
 
 // const compRoutes = require("./routes/compilerRoutes");
 const contestRoutes = require("./routes/contestRoutes");
@@ -41,6 +42,7 @@ app.use("/api/test", contestRoutes);
 
 (async () => {
   await connectDB();
+  startExpirySweep();
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });

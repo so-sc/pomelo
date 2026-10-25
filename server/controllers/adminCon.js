@@ -12,6 +12,7 @@ const {
 const { escapeRegex } = require("../utils/escapeRegex");
 const { findQuestionsInOrder } = require("../utils/findQuestionsInOrder");
 const { ENDED_STATUSES, lastDeadline, contestStatus } = require("../utils/contestTime");
+const { finalizeExpiredAttempts } = require("../utils/expireAttempts");
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const toNumber = (value) => {
@@ -624,6 +625,8 @@ const getAdminContestResults = async (req, res, next) => {
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }
+        // Results must count candidates whose time ran out without a submit.
+        await finalizeExpiredAttempts(contest);
 
         const maxScore = (contest.questions || []).reduce((sum, q) => sum + (q.marks || 0), 0);
         const scoreFilterMeaningful = maxScore > 0;

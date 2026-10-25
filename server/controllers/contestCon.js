@@ -4,6 +4,7 @@ const Submission = require('../models/Submissions');
 const { toProblemView } = require('../utils/toProblemView');
 const { isManuallyEnded, attemptDeadline, lastDeadline } = require('../utils/contestTime');
 const { orderQuestionsFor } = require('../utils/questionOrder');
+const { finalizeExpiredAttempts } = require('../utils/expireAttempts');
 
 // Stands in for "no submittedAt" so Ongoing entries sort last, matching the
 // Infinity the old in-memory comparator used.
@@ -184,6 +185,8 @@ const getLeaderboard = async (req, res, next) => {
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }
+        // Results must count candidates whose time ran out without a submit.
+        await finalizeExpiredAttempts(contest);
 
         const now = new Date();
         // A late joiner may still legitimately be attempting past endTime,

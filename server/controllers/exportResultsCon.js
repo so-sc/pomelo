@@ -1,16 +1,19 @@
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
 const { buildScoreCSV, buildSubmissionsDump, generateResultsFilename } = require('../utils/resultsIO/export');
+const { finalizeExpiredAttempts } = require('../utils/expireAttempts');
 
 // fields: optional projection, so the score sheet doesn't load every candidate's code
 // and test results.
 async function loadContestAndSubmissions(id, fields) {
     const contest = await Contest.findById(id)
-        .select('title questions._id questions.title questions.marks questions.questionType')
+        .select('title durationMinutes questions._id questions.title questions.marks questions.questionType')
         .lean();
     if (!contest) {
         return { contest: null, submissions: [] };
     }
+    // Exports must include candidates whose time ran out without a submit.
+    await finalizeExpiredAttempts(contest);
 
     const submissions = await Submission.find({ contest: id, status: 'Completed' })
         .select(fields)

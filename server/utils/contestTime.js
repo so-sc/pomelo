@@ -23,4 +23,4 @@ const contestStatus = (contest, now) => {
     return 'waiting';
 };
 
-module.exports = { ENDED_STATUSES, isManuallyEnded, attemptDeadline, lastDeadline, contestStatus };
+module.exports = { ENDED_STATUSES, durationMs, isManuallyEnded, attemptDeadline, lastDeadline, contestStatus };
