@@ -16,12 +16,26 @@ const authLimiter = rateLimit({
   windowMs: MINUTE,
   max: 10,
   keyGenerator: (req) => {
-    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     return `${rateLimit.ipKeyGenerator(req.ip)}:${email}`;
   },
   message: limited('Too many requests from this IP, please try again after a minute'),
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+/**
+ * Auth IP Limiter: 200 requests per minute per IP across all emails, so one address
+ * can't spray passwords or mass-register. Generous because a whole campus can share
+ * one NAT address at contest start.
+ */
+const authIpLimiter = rateLimit({
+  windowMs: MINUTE,
+  max: 200,
+  keyGenerator: (req) => rateLimit.ipKeyGenerator(req.ip),
+  message: limited('Too many requests from this network, please try again after a minute'),
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
@@ -73,6 +87,7 @@ const joinLimiter = rateLimit({
 });
 
 module.exports = {
+  authIpLimiter,
   authLimiter,
   submissionLimiter,
   mcqLimiter,

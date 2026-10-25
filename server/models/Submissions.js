@@ -93,5 +93,7 @@ submissionSchema.index({ contest: 1, user: 1 }, { unique: true });
 
 // Backs the ranked-leaderboard sort/pagination
 submissionSchema.index({ contest: 1, totalScore: -1 });
+// The expiry sweep looks up contests with Ongoing attempts every minute.
+submissionSchema.index({ status: 1, contest: 1 });
 
 module.exports = mongoose.models.Submission || mongoose.model('Submission', submissionSchema);

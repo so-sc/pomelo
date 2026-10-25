@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { handleLogin, handleRegister, handleOAuth } = require('../controllers/authCon');
-const { authLimiter } = require('../middlewares/rateLimiter');
+const { authIpLimiter, authLimiter } = require('../middlewares/rateLimiter');
 
 // Apply rate limiting to all auth routes
-router.use(authLimiter);
+router.use(authIpLimiter, authLimiter);
 
 // Login / Verify Credentials
 router.post('/login', handleLogin);

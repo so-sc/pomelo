@@ -63,7 +63,8 @@ exports.getData = async (req, res, next) => {
         if (sort !== null && !isPlainObject(sort)) {
             return res.status(400).json({ success: false, error: "Invalid sort" });
         }
-        if (populate !== null && !(typeof populate === 'string' || Array.isArray(populate) || isPlainObject(populate))) {
+        // Plain paths only: an object could carry `select: '+passwordHash'` past the schema's select:false.
+        if (populate !== null && !(typeof populate === 'string' || (Array.isArray(populate) && populate.every((p) => typeof p === 'string')))) {
             return res.status(400).json({ success: false, error: "Invalid populate" });
         }
         if (search !== null && typeof search !== 'string') {
@@ -123,7 +124,8 @@ exports.getOne = async (req, res, next) => {
         if (projection !== null && !isPlainObject(projection)) {
             return res.status(400).json({ success: false, error: "Invalid projection" });
         }
-        if (populate !== null && !(typeof populate === 'string' || Array.isArray(populate) || isPlainObject(populate))) {
+        // Plain paths only: an object could carry `select: '+passwordHash'` past the schema's select:false.
+        if (populate !== null && !(typeof populate === 'string' || (Array.isArray(populate) && populate.every((p) => typeof p === 'string')))) {
             return res.status(400).json({ success: false, error: "Invalid populate" });
         }
 

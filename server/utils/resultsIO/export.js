@@ -1,5 +1,8 @@
 function csvEscape(value) {
-  const str = value === undefined || value === null ? "" : String(value);
+  let str = value === undefined || value === null ? "" : String(value);
+  // Candidate-supplied text (names) must not run as a spreadsheet formula when an admin
+  // opens the export: a leading ' makes Excel/Sheets treat it as plain text.
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
   if (/[",\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }

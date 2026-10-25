@@ -14,7 +14,7 @@ const handleLogin = async (req, res, next) => {
             return res.status(403).json({ success: false, code: 'PasswordLoginDisabled', error: 'Password login is disabled' });
         }
 
-        if (!email || !password) {
+        if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
             return res.status(400).json({ success: false, error: 'Email and password are required' });
         }
 
@@ -70,7 +70,7 @@ const handleRegister = async (req, res, next) => {
             return res.status(403).json({ success: false, code: 'RegistrationDisabled', error: 'Registration is disabled' });
         }
 
-        if (!email || !password || !name) {
+        if (typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string' || !email || !password || !name) {
             return res.status(400).json({ success: false, error: 'All fields are required' });
         }
 

@@ -6,6 +6,10 @@ const { Worker } = require('worker_threads');
 // run it in parallel. Capped low because Citron and Mongo share the host's CPUs.
 const POOL_SIZE = Math.max(1, Math.min(4, os.availableParallelism() - 1));
 
+// Beyond this many queued jobs a flood would only delay real logins; fail fast instead
+// (the client shows "server busy").
+const MAX_QUEUED = 500;
+
 const pending = new Map(); // id -> { resolve, reject, slot }
 const workers = [];
 let nextId = 0;
@@ -35,6 +39,10 @@ const spawn = (slot) => {
 };
 
 const run = (op, args) => new Promise((resolve, reject) => {
+    if (pending.size >= MAX_QUEUED) {
+        reject(Object.assign(new Error('Password service is busy'), { statusCode: 503 }));
+        return;
+    }
     const slot = turn++ % POOL_SIZE;
     const worker = workers[slot] || spawn(slot);
     const id = nextId++;

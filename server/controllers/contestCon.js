@@ -64,7 +64,7 @@ const getContestLanding = async (req, res, next) => {
                 endTime: contest.endTime,
                 serverTime: now,
                 canStart: canStart,
-                isEnded: isManuallyEnded || now > new Date(contest.endTime), // Pass ended status
+                isEnded: isManuallyEnded(contest) || now > new Date(contest.endTime), // Pass ended status
                 totalProblems: contest.questions.length,
                 author: contest.author || "SCEM Coding Club",
                 rules: contest.rules || []
@@ -93,8 +93,10 @@ const getContestData = async (req, res, next) => {
                 if (s.question) {
                     answerMap[s.question.toString()] = {
                         answer: s.answer,
-                        code: s.code,
-                        language: s.language
+                        // Latest code, not the best-scoring copy, so a reload never
+                        // replaces what the candidate was last working on.
+                        code: s.lastCode ?? s.code,
+                        language: s.lastLanguage ?? s.language
                     };
                 }
             });
@@ -144,20 +146,16 @@ const startTest = async (req, res, next) => {
             await user.save();
         }
 
-        // Initialize Submission if not exists
-        // Middleware might have attached submission
-        let submission = req.submission;
-
-        if (!submission) {
-            submission = await Submission.findOne({ contest: contestId, user: userId });
-        }
-
-        if (!submission) {
-            submission = new Submission({ contest: contestId, user: userId, status: 'Ongoing' });
-            await submission.save();
-        } else {
-            // Middleware already checked if it was Completed and threw 403 if checkAttemptStatus was set
-        }
+        // Upsert, so two concurrent starts (double click, two tabs) share one attempt instead
+        // of the second failing on the unique index. A Completed attempt never gets here:
+        // the middleware's checkAttemptStatus already rejected it.
+        const { value: submission, lastErrorObject } = await Submission.findOneAndUpdate(
+            { contest: contestId, user: userId },
+            { $setOnInsert: { status: 'Ongoing', startedAt: now } },
+            { upsert: true, returnDocument: 'after', includeResultMetadata: true }
+        );
+        // The client keeps this browser's proctoring state when an attempt is resumed.
+        const resumed = !lastErrorObject?.upserted;
 
         const deadline = attemptDeadline(contest, submission);
 
@@ -167,6 +165,7 @@ const startTest = async (req, res, next) => {
             data: {
                 contestId: contest._id,
                 title: contest.title,
+                resumed,
                 timeRemaining: Math.max(0, Math.floor((deadline - now) / 1000))
             }
         });
@@ -274,33 +273,34 @@ const endTest = async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'Contest ID is required' });
         }
 
-        const submission = await Submission.findOne({ contest: contestId, user: userId });
+        const forced = Boolean(forcedSubmission || autoSubmitReason);
+        // Atomic and Ongoing-only, so a force-end or expiry that completes the attempt
+        // first is never overwritten (and repeated calls can't move submittedAt).
+        const completed = await Submission.findOneAndUpdate(
+            { contest: contestId, user: userId, status: 'Ongoing' },
+            { $set: {
+                status: 'Completed',
+                submittedAt: new Date(),
+                forcedSubmission: forced,
+                autoSubmitReason: forced ? autoSubmitReason || 'VIOLATION_LIMIT_REACHED' : undefined,
+            } },
+            { returnDocument: 'after' }
+        ).lean();
+        if (completed) {
+            return res.json({ success: true, message: 'Test completed successfully', forcedSubmission: completed.forcedSubmission });
+        }
+
+        const submission = await Submission.findOne({ contest: contestId, user: userId }).select('status forcedSubmission').lean();
 
         if (!submission) {
             return res.status(404).json({ success: false, error: 'Submission session not found. Did you start the test?' });
         }
 
-        // Submitting is one-time: the first end wins. Without this, a later call could
-        // move submittedAt forward, and one with an empty body would clear the
-        // forcedSubmission flag set by an integrity auto-submit.
-        if (submission.status === 'Completed') {
-            return res.json({
-                success: true,
-                message: 'Test already submitted',
-                forcedSubmission: Boolean(submission.forcedSubmission)
-            });
-        }
-
-        submission.status = 'Completed';
-        submission.submittedAt = new Date();
-        submission.forcedSubmission = Boolean(forcedSubmission || autoSubmitReason);
-        submission.autoSubmitReason = submission.forcedSubmission ? autoSubmitReason || 'VIOLATION_LIMIT_REACHED' : undefined;
-        await submission.save();
-
+        // Not Ongoing, so already Completed: submitting is one-time and the first end wins.
         return res.json({
             success: true,
-            message: 'Test completed successfully',
-            forcedSubmission: submission.forcedSubmission
+            message: 'Test already submitted',
+            forcedSubmission: Boolean(submission.forcedSubmission)
         });
     } catch (error) {
         next(error);

@@ -27,6 +27,8 @@ app.use(
 );
 
 app.use(express.json());
+// Express 5 leaves req.body undefined without a JSON body; handlers read fields off it.
+app.use((req, _res, next) => { req.body ??= {}; next(); });
 
 app.get("/", (req, res) => {
   res.json({
