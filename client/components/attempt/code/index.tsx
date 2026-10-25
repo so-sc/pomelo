@@ -5,6 +5,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useIsClient } from "@/hooks/use-is-client";
 import CodeEditorPanel from "./code-editor";
 import DescriptionPanel from "./description";
 import TestCasePanel from "./test-case";
@@ -33,7 +34,7 @@ export function CodeScreen({
   const [language, setLanguage] = useState(initialLanguage);
   
   const [code, setCode] = useState(problem.savedCode || (problem.boilerplateCode && availableLanguages.length > 0 ? (problem.boilerplateCode[initialLanguage as keyof typeof problem.boilerplateCode] || "") : "// Start coding here"));
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useIsClient();
 
   const draftKey = React.useCallback(
     (lang: string) => {
@@ -43,16 +44,18 @@ export function CodeScreen({
     [problem.id, problem.boilerplateCode, draftKeyPrefix]
   );
 
-  React.useEffect(() => {
-    setIsMounted(true);
-    // If we do not have a saved code from the server for the current initial language, check local storage
-    if (!problem.savedCode) {
+  // If we do not have a saved code from the server for the current initial language, check local storage
+  const initialDraftKey = isMounted && !problem.savedCode ? draftKey(initialLanguage) : null;
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
+  if (initialDraftKey !== loadedDraftKey) {
+    setLoadedDraftKey(initialDraftKey);
+    if (initialDraftKey) {
       try {
-        const draft = localStorage.getItem(draftKey(initialLanguage));
+        const draft = localStorage.getItem(initialDraftKey);
         if (draft) setCode(draft);
       } catch { /* localStorage unavailable (e.g. private browsing) */ }
     }
-  }, [initialLanguage, problem.savedCode, draftKey]);
+  }
 
   React.useEffect(() => {
     if (isMounted && code !== "") {

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -15,12 +16,8 @@ import BulkImportDialog from "./bulk-import-dialog";
 
 export function QuestionHeader() {
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useIsClient();
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   if (!isClient) {
     return (

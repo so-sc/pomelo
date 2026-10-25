@@ -32,7 +32,14 @@ export default function ContestLanding() {
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
-  const [justSubmitted, setJustSubmitted] = useState(false);
+  const [justSubmitted] = useState(() => {
+    if (typeof window === "undefined" || !testid) return false;
+    try {
+      return Boolean(sessionStorage.getItem(`pomelo_just_submitted_${testid}`));
+    } catch {
+      return false;
+    }
+  });
 
   const updateCountdown = useCallback((startTime: string) => {
     const start = new Date(startTime).getTime();
@@ -54,35 +61,33 @@ export default function ContestLanding() {
     return false;
   }, []);
 
-  const fetchInstructions = useCallback(async () => {
+  useEffect(() => {
     if (status !== "authenticated" || !testid) return;
 
-    try {
-      const result = await getContestLanding(testid as string);
+    (async () => {
+      try {
+        const result = await getContestLanding(testid as string);
 
-      if (result.success && result.data) {
-        const now = new Date().getTime();
-        const end = new Date(result.data.endTime).getTime();
-        const isEnded = result.data.isEnded || now > end;
-        setDetails({ ...result.data, isEnded });
-      } else {
-        // contestMiddleware flags completed attempts with isCompleted: true
-        if (result.isCompleted) {
-          setAlreadyCompleted(true);
+        if (result.success && result.data) {
+          const now = new Date().getTime();
+          const end = new Date(result.data.endTime).getTime();
+          const isEnded = result.data.isEnded || now > end;
+          setDetails({ ...result.data, isEnded });
         } else {
-          toast.error(result.error || "Failed to fetch data");
+          // contestMiddleware flags completed attempts with isCompleted: true
+          if (result.isCompleted) {
+            setAlreadyCompleted(true);
+          } else {
+            toast.error(result.error || "Failed to fetch data");
+          }
         }
+      } catch {
+        toast.error("Failed to load instructions");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      toast.error("Failed to load instructions");
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, [testid, status]);
-
-  useEffect(() => {
-    if (testid && status === "authenticated") fetchInstructions();
-  }, [testid, status, fetchInstructions]);
 
   // Detect a completed attempt proactively: getContestData is gated by
   // checkAttemptStatus: 'NotCompleted', so the server answers 403 with
@@ -110,10 +115,7 @@ export default function ContestLanding() {
   useEffect(() => {
     if (!testid) return;
     try {
-      if (sessionStorage.getItem(`pomelo_just_submitted_${testid}`)) {
-        setJustSubmitted(true);
-        sessionStorage.removeItem(`pomelo_just_submitted_${testid}`);
-      }
+      sessionStorage.removeItem(`pomelo_just_submitted_${testid}`);
     } catch {
       // sessionStorage unavailable — the probe above still catches completion
     }

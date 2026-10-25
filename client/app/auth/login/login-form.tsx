@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ const SSO_ERRORS: Record<string, string> = {
 export default function LoginForm({ methods }: { methods: AuthMethods }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ssoError, setSsoError] = useState("");
+  const [oauthError, setOauthError] = useState("");
   const [isEmailPasswordLoading, setIsEmailPasswordLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -38,14 +38,10 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
     typeof window === "undefined" ? undefined : window.location.host,
   );
 
-  useEffect(() => {
-    const error = searchParams.get("error");
-    if (error && SSO_ERRORS[error]) {
-      setSsoError(SSO_ERRORS[error]);
-    } else if (error) {
-      setSsoError("Authentication failed. Please try again.");
-    }
-  }, [searchParams]);
+  const urlError = searchParams.get("error");
+  const ssoError =
+    oauthError ||
+    (urlError ? SSO_ERRORS[urlError] || "Authentication failed. Please try again." : "");
 
   const validateForm = () => {
     let valid = true;
@@ -202,7 +198,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
             <OAuthButtons
               providers={methods.oauth}
               divider={methods.credentials}
-              onError={setSsoError}
+              onError={setOauthError}
               callbackUrl={callbackUrl}
             />
 

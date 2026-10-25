@@ -1,32 +1,30 @@
 "use client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Pencil } from "lucide-react";
 
 const languageList = ["c", "cpp", "java", "python"];
+
+const activeLanguages = (boilerplate: Record<string, unknown>) =>
+  Object.keys(boilerplate).filter(
+    (key) => languageList.includes(key) && boilerplate[key] !== undefined
+  );
 
 export default function BoilerplateCard() {
   const { setValue, watch, unregister } = useFormContext();
   const boilerplate = watch("boilerplate");
 
   // Initialize local state based on existing form data (for edit mode)
-  const [supportedLanguages, setSupportedLanguages] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (boilerplate) {
-      const activeLangs = Object.keys(boilerplate).filter(
-        (key) => languageList.includes(key) && boilerplate[key] !== undefined
-      );
-      if (activeLangs.length > 0) {
-        setSupportedLanguages(activeLangs);
-      } else {
-        // Default to all if none set (or maybe none? defaulting to empty for now)
-        setSupportedLanguages([]);
-      }
-    }
-  }, [boilerplate]); // Added boilerplate dependency
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>(() =>
+    boilerplate ? activeLanguages(boilerplate) : []
+  );
+  const [prevBoilerplate, setPrevBoilerplate] = useState(boilerplate);
+  if (boilerplate !== prevBoilerplate) {
+    setPrevBoilerplate(boilerplate);
+    if (boilerplate) setSupportedLanguages(activeLanguages(boilerplate));
+  }
 
   const toggleLanguage = (lang: string) => {
     let newLangs;

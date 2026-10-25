@@ -52,10 +52,10 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
       endsAt: defaultSchedule.endsAt,
       durationMinutes: defaultSchedule.durationMinutes,
       status: "waiting",
-      problems: [],
       rules: [],
       shuffleQuestions: false,
       ...testData,
+      problems: (testData?.problems as string[] | undefined) ?? [],
     },
   });
 

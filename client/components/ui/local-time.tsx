@@ -1,10 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-
-const subscribe = () => () => {};
-const clientSnapshot = () => true;
-const serverSnapshot = () => false;
+import { useIsClient } from "@/hooks/use-is-client";
 
 interface LocalTimeProps {
   iso: string;
@@ -12,7 +8,7 @@ interface LocalTimeProps {
 }
 
 export function LocalTime({ iso, fallback = "Unknown" }: LocalTimeProps) {
-  const isClient = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const isClient = useIsClient();
   const date = new Date(iso);
   if (isNaN(date.getTime())) return <>{fallback}</>;
   return (

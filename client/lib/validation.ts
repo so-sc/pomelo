@@ -45,7 +45,7 @@ export function validateImportJSONClient(jsonString: string): ClientValidationRe
   }
 
   // Extract questions
-  let questions: any[] = [];
+  let questions: Record<string, unknown>[] = [];
   if (Array.isArray(jsonData)) {
     questions = jsonData;
   } else if (jsonData?.questions && Array.isArray(jsonData.questions)) {
@@ -65,7 +65,7 @@ export function validateImportJSONClient(jsonString: string): ClientValidationRe
   const errors: ClientValidationError[] = [];
 
   questions.forEach((q, idx) => {
-    if (!q.type || !['coding', 'mcq'].includes(q.type)) {
+    if (typeof q.type !== 'string' || !['coding', 'mcq'].includes(q.type)) {
       errors.push({
         index: idx,
         field: 'type',

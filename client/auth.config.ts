@@ -51,7 +51,7 @@ async function mintBackendToken(user: User) {
 export const authConfig = {
     secret: process.env.AUTH_SECRET,
     logger: {
-        error(error: any) {
+        error(error: Error & { type?: string; code?: string }) {
             if (error?.name === 'CredentialsSignin' || error?.type === 'CredentialsSignin' || error?.code === 'credentials') return;
             console.error(error);
         }
@@ -60,9 +60,9 @@ export const authConfig = {
         signIn: '/auth/login',
     },
     callbacks: {
-        async signIn({ user, account }: { user: any; account?: any }) {
+        async signIn({ user, account }) {
             const entry = account ? getProviderEntry(account.provider) : undefined;
-            if (!entry?.toBackendPayload) return true;
+            if (!account || !entry?.toBackendPayload) return true;
 
             // The backend verifies the provider's token itself, then finds, links or creates the user.
             try {
@@ -88,17 +88,17 @@ export const authConfig = {
                 }
 
                 return `/auth/login?error=${encodeURIComponent(data.code || "OAuthSignInFailed")}`;
-            } catch (error: any) {
-                console.error(`OAuth API error: ${error.message || 'Unknown error'}`);
+            } catch (error) {
+                console.error(`OAuth API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 return "/auth/login?error=OAuthSignInFailed";
             }
         },
-        authorized({ auth, request }: { auth: any; request: any }) {
+        authorized({ auth, request }) {
             const nextUrl = request?.nextUrl;
             if (!nextUrl) return true;
 
             const isLoggedIn = !!auth?.user
-            const userRole = (auth?.user as any)?.role;
+            const userRole = auth?.user?.role;
 
             const isAdminPage = nextUrl.pathname.startsWith('/admin');
             const isUserPage = ['/attempt', '/join', '/test'].some(path => nextUrl.pathname.startsWith(path));
@@ -125,7 +125,7 @@ export const authConfig = {
 
             return true;
         },
-        async jwt({ token, user }: { token: any; user?: any }) {
+        async jwt({ token, user }) {
             if (user) {
                 const u = user as User;
                 token.role = u.role
@@ -149,7 +149,7 @@ export const authConfig = {
 
             // `user` is only set at sign-in, so this is the only place a long-lived
             // session can renew its short-lived backend token.
-            if (token.id && shouldRefreshBackendToken(token.backendTokenExp, Math.floor(Date.now() / 1000))) {
+            if (token.id && shouldRefreshBackendToken(token.backendTokenExp as number | undefined, Math.floor(Date.now() / 1000))) {
                 try {
                     // The user id comes from the backend token minted at sign-in, which is the
                     // database id even for sessions whose token.id predates the fix above.
@@ -168,7 +168,7 @@ export const authConfig = {
 
             return token
         },
-        async session({ session, token }: { session: any; token: any }) {
+        async session({ session, token }) {
             if (token && session.user) {
                 session.user.role = token.role as string
                 session.user.id = token.id as string

@@ -28,7 +28,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 function formatTimeForDisplay(hours: number, minutes: number) {
   const period = hours >= 12 ? "PM" : "AM";
@@ -67,6 +67,10 @@ function normalizeTimeInput(value: string) {
   return value.replace(/\b(am|pm)\b/gi, (match) => match.toUpperCase());
 }
 
+const subscribe = () => () => {};
+const clientTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const serverTimezone = () => null;
+
 export default function TestBasicCard() {
   const { control, setValue, watch } = useFormContext();
 
@@ -81,20 +85,18 @@ export default function TestBasicCard() {
   // Resolved client-side only — the server's ICU data can report a different
   // (sometimes outdated-alias) name for the same zone than the browser does,
   // which causes a hydration mismatch if read during SSR.
-  const [userTimezone, setUserTimezone] = useState<string | null>(null);
-  useEffect(() => {
-    setUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, []);
+  const userTimezone = useSyncExternalStore(subscribe, clientTimezone, serverTimezone);
 
-  useEffect(() => {
-    if (startsAt) {
-      const parsed = new Date(startsAt);
-      if (!isNaN(parsed.getTime())) {
-        setDate(parsed);
-        setTime(formatTimeForInput(parsed));
-      }
+  const clientStartsAt = userTimezone ? startsAt : undefined;
+  const [prevStartsAt, setPrevStartsAt] = useState<string | undefined>(undefined);
+  if (clientStartsAt !== prevStartsAt) {
+    setPrevStartsAt(clientStartsAt);
+    const parsed = clientStartsAt ? new Date(clientStartsAt) : null;
+    if (parsed && !isNaN(parsed.getTime())) {
+      setDate(parsed);
+      setTime(formatTimeForInput(parsed));
     }
-  }, [startsAt]);
+  }
 
   useEffect(() => {
     if (date && time) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -58,11 +58,8 @@ export default function QuestionNav({ problems }: { problems: ProblemMeta[] }) {
   const params = useParams();
   const { progress } = useAttemptRuntime();
   const currentId = pathname.split("/").pop();
-  const [visited, setVisited] = useState<Set<string>>(() => new Set());
-
-  useEffect(() => {
-    if (currentId) setVisited((prev) => (prev.has(currentId) ? prev : new Set(prev).add(currentId)));
-  }, [currentId]);
+  const [visited, setVisited] = useState<Set<string>>(() => new Set(currentId ? [currentId] : []));
+  if (currentId && !visited.has(currentId)) setVisited(new Set(visited).add(currentId));
 
   const mcq = problems.filter((p) => p.type !== "coding");
   const coding = problems.filter((p) => p.type === "coding");

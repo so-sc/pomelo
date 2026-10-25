@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -80,6 +81,14 @@ export default function IntegrityMonitor() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(Math.ceil(FINAL_MODAL_DELAY_MS / 1000));
+
+  const isClient = useIsClient();
+  const storageTestId = isClient && testId && !DISABLE_PROCTORING ? testId : null;
+  const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
+  if (storageTestId !== loadedTestId) {
+    setLoadedTestId(storageTestId);
+    if (storageTestId) setViolationCount(readViolationCount(storageTestId));
+  }
 
   const blurTimeoutRef = useRef<number | null>(null);
   const screenshotTimeoutRef = useRef<number | null>(null);
@@ -214,12 +223,8 @@ export default function IntegrityMonitor() {
     if (!testId) return;
     if (DISABLE_PROCTORING) return;
 
-    const storedCount = readViolationCount(testId);
-    setViolationCount(storedCount);
-
     void clearClipboard();
     void requestTestFullscreen();
-    setCountdown(Math.ceil(FINAL_MODAL_DELAY_MS / 1000));
 
     const graceTimer = setTimeout(() => {
       isGracePeriodRef.current = false;

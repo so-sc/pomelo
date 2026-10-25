@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ssoError, setSsoError] = useState("");
+  const [oauthError, setOauthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -34,14 +34,14 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
     typeof window === "undefined" ? undefined : window.location.host,
   );
 
-  useEffect(() => {
-    const error = searchParams.get("error");
-    if (error === "OAuthAccountNotLinked") {
-      setSsoError("To confirm your identity, sign in with the same account you used originally.");
-    } else if (error) {
-      setSsoError("Authentication failed. Please try again.");
-    }
-  }, [searchParams]);
+  const urlError = searchParams.get("error");
+  const ssoError =
+    oauthError ||
+    (urlError === "OAuthAccountNotLinked"
+      ? "To confirm your identity, sign in with the same account you used originally."
+      : urlError
+        ? "Authentication failed. Please try again."
+        : "");
 
   const validateForm = () => {
     const errors: string[] = [];
@@ -237,7 +237,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
                   {loading ? "Loading..." : "Continue"}
                 </Button>
 
-                <OAuthButtons providers={oauth} divider onError={setSsoError} callbackUrl={callbackUrl} />
+                <OAuthButtons providers={oauth} divider onError={setOauthError} callbackUrl={callbackUrl} />
               </div>
             </form>
 
