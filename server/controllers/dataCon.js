@@ -87,8 +87,9 @@ exports.getData = async (req, res, next) => {
 
         const skipCount = Math.max(0, Math.floor(Number(skip)) || 0);
 
-        // Build query
-        let query = Model.find(effectiveFilter, projection);
+        // Build query. lean(): the result is only serialised, and hydrating every
+        // document costs a lot of CPU on the API's single event loop.
+        let query = Model.find(effectiveFilter, projection).lean();
 
         if (sort) query = query.sort(sort);
         if (skipCount) query = query.skip(skipCount);
@@ -133,7 +134,7 @@ exports.getOne = async (req, res, next) => {
             return res.status(400).json({ success: false, error: "Unsafe query keys detected" });
         }
 
-        let query = Model.findOne(filter, projection);
+        let query = Model.findOne(filter, projection).lean();
         if (populate) query = query.populate(populate);
 
         const data = await query.exec();

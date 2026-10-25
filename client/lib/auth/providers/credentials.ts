@@ -1,6 +1,7 @@
 import Credentials from "next-auth/providers/credentials"
 import { z } from "zod"
 import { getBaseUrl } from "@/lib/env";
+import { clientIpHeaders } from "@/lib/client-ip";
 import type { AuthProviderEntry } from "./types";
 
 export const credentials: AuthProviderEntry = {
@@ -19,7 +20,7 @@ export const credentials: AuthProviderEntry = {
                 try {
                     const res = await fetch(`${getBaseUrl()}/api/auth/login`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...(await clientIpHeaders()) },
                         body: JSON.stringify({ email, password })
                     });
 

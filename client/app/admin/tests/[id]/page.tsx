@@ -25,7 +25,8 @@ export default async function AdminTestDetailPage({
   try {
     const data = await db.findOne<Record<string, unknown>>("contests", { _id: id });
     // Fetch submissions to calculate stats
-    const submissions = await db.find<Record<string, unknown>>("submissions", { contest: id }) || [];
+    // Only the status is needed; full submissions carry code and test results.
+    const submissions = await db.find<Record<string, unknown>>("submissions", { contest: id }, { projection: { status: 1 } }) || [];
     
     // Calculate stats
     const totalParticipants = submissions.length;

@@ -2,6 +2,7 @@
 import type { NextAuthConfig } from "next-auth"
 import { SignJWT } from "jose"
 import { getBaseUrl } from "@/lib/env";
+import { clientIpHeaders } from "@/lib/client-ip";
 import { getEnabledProviders, getProviderEntry } from "@/lib/auth/providers";
 
 // Helper to mint a token for the Express Request
@@ -67,7 +68,7 @@ export const authConfig = {
             try {
                 const res = await fetch(`${getBaseUrl()}/api/auth/oauth/${entry.id}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await clientIpHeaders()) },
                     body: JSON.stringify(entry.toBackendPayload(account))
                 });
                 const data = await res.json().catch(() => ({}));

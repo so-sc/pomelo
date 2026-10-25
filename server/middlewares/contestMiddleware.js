@@ -50,7 +50,11 @@ const validateContest = (options = {}) => async (req, res, next) => {
         let submission = null;
         if ((options.checkEnded || options.checkAttemptStatus || options.requireAttempt) && req.user) {
             const userId = req.user.id || req.user._id || req.user.sub;
-            submission = await Submission.findOne({ contest: contest._id, user: userId });
+            // Runs on every attempt request: skip the bulky per-test-case results and
+            // don't hydrate, since every consumer only reads it.
+            submission = await Submission.findOne({ contest: contest._id, user: userId })
+                .select('-submissions.testCaseResults')
+                .lean();
         }
 
         if (options.checkEnded) {

@@ -605,7 +605,10 @@ fi
 # Copy default Citron config if not present
 if [[ ! -f "$APP_ROOT/config/citron.conf" ]] && [[ -f "$APP_ROOT/app/config/citron/citron.conf" ]]; then
   cp "$APP_ROOT/app/config/citron/citron.conf" "$APP_ROOT/config/citron.conf"
-  log_success "Default citron.conf installed"
+  # The shipped default of 2 concurrent runs is far below what a contest needs.
+  CPUS=$(nproc 2>/dev/null || echo 2)
+  sed -i -E "s/^(max_concurrent_submissions|execution_slots) = .*/\1 = ${CPUS}/" "$APP_ROOT/config/citron.conf"
+  log_success "Default citron.conf installed (${CPUS} execution slots)"
 fi
 
 if [[ ! -f "$APP_ROOT/config/languages.toml" ]] && [[ -f "$APP_ROOT/app/config/citron/languages.toml" ]]; then

@@ -3,7 +3,9 @@ const Submission = require('../models/Submissions');
 const { connectDB } = require('../helpers/dbCon');
 const { buildScoreCSV, buildSubmissionsDump, generateResultsFilename } = require('../utils/resultsIO/export');
 
-async function loadContestAndSubmissions(id) {
+// fields: optional projection, so the score sheet doesn't load every candidate's code
+// and test results.
+async function loadContestAndSubmissions(id, fields) {
     const contest = await Contest.findById(id)
         .select('title questions._id questions.title questions.marks questions.questionType')
         .lean();
@@ -12,6 +14,7 @@ async function loadContestAndSubmissions(id) {
     }
 
     const submissions = await Submission.find({ contest: id, status: 'Completed' })
+        .select(fields)
         .populate('user', 'name email')
         .lean();
 
@@ -33,7 +36,7 @@ const exportScores = async (req, res, next) => {
         await connectDB();
         const { id } = req.params;
 
-        const { contest, submissions } = await loadContestAndSubmissions(id);
+        const { contest, submissions } = await loadContestAndSubmissions(id, 'user totalScore submissions.question submissions.score');
         if (!contest) {
             return res.status(404).json({ success: false, error: 'Contest not found' });
         }

@@ -68,7 +68,7 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
       }
     };
     verifyStatus();
-    const interval = setInterval(verifyStatus, 20000);
+    const interval = setInterval(verifyStatus, 60000);
     return () => clearInterval(interval);
   }, [params.testid, router]);
 

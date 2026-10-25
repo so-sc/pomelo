@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getBaseUrl } from "@/lib/env";
+import { clientIpHeaders } from "@/lib/client-ip";
 
 export async function fetchBackend(endpoint: string, options: RequestInit = {}) {
   let session = null;
@@ -11,6 +12,7 @@ export async function fetchBackend(endpoint: string, options: RequestInit = {}) 
   const token = session?.backendToken;
 
   const headers = new Headers(options.headers);
+  for (const [k, v] of Object.entries(await clientIpHeaders())) headers.set(k, v);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }

@@ -40,8 +40,10 @@ const removeTrailingLineCommands = (output) => {
 // Sits above citron's own 15s queue + 30s execution deadline so citron times out first.
 const CITRON_TIMEOUT_MS = 60000;
 
-// Citron returns 503 when busy instead of queueing, so that's worth a retry.
-const CITRON_RETRY_DELAYS_MS = [500, 1500, 3000];
+// Citron already queues for up to 15s before answering 503, so a 503 means it is
+// saturated: retry once after a jittered pause (so retries don't arrive in sync), then
+// fail fast with the "busy" message instead of piling more waiters onto its queue.
+const citronRetryDelayMs = () => 1000 + Math.random() * 2000;
 
 const decodeBase64 = (value) => (value ? Buffer.from(value, "base64").toString("utf-8") : "");
 
@@ -89,8 +91,8 @@ const postSubmission = async (payload) => {
             signal: AbortSignal.timeout(CITRON_TIMEOUT_MS),
         });
 
-        if (response.status === 503 && attempt < CITRON_RETRY_DELAYS_MS.length) {
-            await new Promise((resolve) => setTimeout(resolve, CITRON_RETRY_DELAYS_MS[attempt]));
+        if (response.status === 503 && attempt < 1) {
+            await new Promise((resolve) => setTimeout(resolve, citronRetryDelayMs()));
             continue;
         }
         if (!response.ok) {

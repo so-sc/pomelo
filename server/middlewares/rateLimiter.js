@@ -1,13 +1,25 @@
 const rateLimit = require('express-rate-limit');
 
+const MINUTE = 60 * 1000;
+
+// Per signed-in user (requireAuth must run first); falls back to IP to avoid runtime errors.
+const userKey = (req, res) => req.user?.id || rateLimit.ipKeyGenerator(req.ip);
+
+const limited = (error) => ({ success: false, error, rateLimited: true });
+
 /**
- * Auth Limiter: 5 requests per minute per IP.
- * Applied to login and register routes.
+ * Auth Limiter: 10 requests per minute per IP + email.
+ * Keyed on the email too, so a campus behind one NAT isn't locked out by one user,
+ * while guessing passwords for one account stays throttled.
  */
 const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5,
-  message: 'Too many requests from this IP, please try again after a minute',
+  windowMs: MINUTE,
+  max: 10,
+  keyGenerator: (req) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : '';
+    return `${rateLimit.ipKeyGenerator(req.ip)}:${email}`;
+  },
+  message: limited('Too many requests from this IP, please try again after a minute'),
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
@@ -17,13 +29,10 @@ const authLimiter = rateLimit({
  * Applied only to authenticated routes (requireAuth must be called first).
  */
 const submissionLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  windowMs: MINUTE,
   max: 10,
-  keyGenerator: (req, res) => {
-    // Use user id when available; fall back to IP to avoid runtime errors
-    return req.user?.id || req.user?._id || req.user?.sub || rateLimit.ipKeyGenerator(req, res);
-  },
-  message: { success: false, error: 'Too many submissions, please try again after a minute', rateLimited: true },
+  keyGenerator: userKey,
+  message: limited('Too many submissions, please try again after a minute'),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -33,23 +42,22 @@ const submissionLimiter = rateLimit({
  * MCQ answers are lightweight — allow more frequent saves.
  */
 const mcqLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  windowMs: MINUTE,
   max: 30,
-  keyGenerator: (req, res) => {
-    return req.user?.id || req.user?._id || req.user?.sub || rateLimit.ipKeyGenerator(req, res);
-  },
-  message: { success: false, error: 'Too many answer saves, please slow down', rateLimited: true },
+  keyGenerator: userKey,
+  message: limited('Too many answer saves, please slow down'),
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 /**
- * Join Limiter: Stricter limit for anonymous contest joins (2 requests per minute per IP).
+ * Join Limiter: 10 requests per minute per IP for anonymous contest joins.
+ * Join IDs come from a 900k space, so this still makes guessing impractical.
  */
 const joinLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 2,
-  message: 'Too many join attempts, please try again after a minute',
+  windowMs: MINUTE,
+  max: 10,
+  message: limited('Too many join attempts, please try again after a minute'),
   standardHeaders: true,
   legacyHeaders: false,
 });

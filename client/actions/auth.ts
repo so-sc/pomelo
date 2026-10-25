@@ -4,6 +4,7 @@ import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { z } from "zod";
 import { getBaseUrl } from "@/lib/env";
+import { clientIpHeaders } from "@/lib/client-ip";
 
 const RegisterSchema = z.object({
     name: z.string().min(1).max(100),
@@ -44,14 +45,14 @@ export async function register(prevState: string | undefined, formData: FormData
     try {
         const res = await fetch(`${getBaseUrl()}/api/auth/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await clientIpHeaders()) },
             body: JSON.stringify({ name, email, password })
         });
 
         const data = await res.json();
 
         if (!res.ok || !data.success) {
-            return data.message || "Registration failed";
+            return data.error || data.message || "Registration failed";
         }
 
         return "success";

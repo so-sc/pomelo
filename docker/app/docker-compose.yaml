@@ -35,6 +35,7 @@ services:
     volumes:
       - /opt/pomelo/data:/app/data
       - /opt/pomelo/config:/app/config:ro
+    restart: unless-stopped
 
   client:
     build:
@@ -53,6 +54,7 @@ services:
     depends_on:
       server:
         condition: service_started
+    restart: unless-stopped
 
   caddy:
     image: caddy:2-alpine
