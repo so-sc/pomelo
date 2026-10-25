@@ -35,6 +35,27 @@ pomelo ui
 The administrative interface is accessible via a web browser on port 8462.
 
 
+## Candidate feedback
+
+After submitting a test, candidates can optionally rate its difficulty and their
+platform experience from 1 to 5, with a comment of up to 2,000 characters. They can
+skip feedback without affecting their submission or score. Each completed attempt
+can receive feedback once, including after the test closes. Organizers can view
+response counts, average ratings, and labeled 1-5 distribution charts on the dedicated
+`/admin/tests/[id]/feedback` page, linked from test details and results. Reviews
+include ratings without written comments and can be filtered by difficulty and
+experience or sorted by date and either rating. Charts and averages always cover
+all responses; filters and pagination apply to the review list.
+
+Run the feedback integration checks against a development MongoDB instance:
+
+```bash
+FEEDBACK_TEST_MONGODB_URI=mongodb://127.0.0.1:27017 pnpm --filter @pomelo/server test:integration
+```
+
+The suite creates and removes its own uniquely named test database. Use your local
+MongoDB port if different. Unit tests run with `pnpm test`.
+
 ## Documentation
 
 For more detailed information, please refer to the official documentation:

@@ -50,6 +50,16 @@ const mcqLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Keep feedback retries independent of the candidate's code-submission quota.
+const feedbackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
+  message: { success: false, error: 'Too many feedback requests, please try again after a minute', rateLimited: true },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /**
  * Join Limiter: 10 requests per minute per IP for anonymous contest joins.
  * Join IDs come from a 900k space, so this still makes guessing impractical.
@@ -66,5 +76,6 @@ module.exports = {
   authLimiter,
   submissionLimiter,
   mcqLimiter,
+  feedbackLimiter,
   joinLimiter,
 };

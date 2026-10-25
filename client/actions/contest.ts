@@ -31,6 +31,17 @@ export async function endTest(contestId: string, forcedSubmission?: boolean, aut
   });
 }
 
+export async function submitFeedback(contestId: string, feedback: {
+  difficulty: number;
+  experience: number;
+  comment?: string;
+}) {
+  return fetchBackend(`/api/test/${contestId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify(feedback),
+  });
+}
+
 export async function submitMcq(contestId: string, questionId: string, answer: any) {
   return fetchBackend(`/api/test/${contestId}/mcq`, {
     method: "POST",

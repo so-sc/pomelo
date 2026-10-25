@@ -4,6 +4,7 @@ import {
     Users,
     Award,
     ExternalLink,
+    MessageSquare,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,7 +170,10 @@ export default async function AdminTestResultPage({
                             </p>
                         </div>
                     </div>
-                    <ExportResultsButtons contestId={data.id} contestTitle={data.testName} />
+                    <div className="flex flex-wrap gap-3">
+                        <Button variant="outline" asChild><Link href={`/admin/tests/${data.id}/feedback`}><MessageSquare className="size-4" />View feedback</Link></Button>
+                        <ExportResultsButtons contestId={data.id} contestTitle={data.testName} />
+                    </div>
                 </header>
 
                 <section className="space-y-6">

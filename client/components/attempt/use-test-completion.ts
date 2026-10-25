@@ -14,7 +14,6 @@ import { endTest } from "@/actions/contest";
 interface CompleteTestOptions {
   forced?: boolean;
   autoSubmitReason?: string;
-  redirectTo?: string;
   replace?: boolean;
   successMessage?: string;
   errorMessage?: string;
@@ -66,7 +65,7 @@ export function useTestCompletion() {
         (options.forced ? "Test auto-submitted after repeated violations." : "Test submitted successfully!")
       );
 
-      const destination = options.redirectTo ?? (options.forced ? "/" : `/test/${testId}`);
+      const destination = `/test/${testId}/feedback`;
       const shouldReplace = options.replace ?? options.forced;
 
       if (shouldReplace) {
