@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   citron:
-    image: justmodo/citron:latest
+    image: justmodo/citron:v1.0.0
     command: ["citron", "-config", "/opt/citron/configs/citron.conf", "-address", "0.0.0.0:2358"]
     ports:
       - "127.0.0.1:2358:2358"
