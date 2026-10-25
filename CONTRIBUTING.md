@@ -14,15 +14,13 @@ To run Pomelo locally for development, you must start the background dependencie
 
 ### Step 1: Environment Configuration
 
-Copy the example environment files for the root, server, and client environments.
+Copy the example environment file. The server, client and admin daemon all read this one root `.env` in development; `server/.env` and `client/.env` are not used.
 
 ```bash
 cp .env.example .env
-cp server/.env.example server/.env
-cp client/.env.example client/.env
 ```
 
-Review the `.env` files and populate any required variables (e.g., `AUTH_SECRET`).
+Review `.env` and populate any required variables (e.g., `AUTH_SECRET`). Restart `pnpm dev` after editing it.
 
 ### Step 2: Start Infrastructure Dependencies
 

@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const requireAuth = () => async (req, res, next) => {
   try {
     const { jwtVerify } = await import('jose');

@@ -1,5 +1,7 @@
 const express = require("express");
-require("dotenv").config();
+// Dev reads the one repo-root .env shared with the client and daemon. In Docker the
+// variables come from the container environment and there is no file, so this no-ops.
+require("dotenv").config({ path: require("path").resolve(__dirname, "../.env"), quiet: true });
 const cors = require("cors");
 
 const app = express();
