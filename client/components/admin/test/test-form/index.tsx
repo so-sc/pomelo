@@ -54,6 +54,7 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
       status: "waiting",
       problems: [],
       rules: [],
+      shuffleQuestions: false,
       ...testData,
     },
   });

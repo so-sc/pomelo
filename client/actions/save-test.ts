@@ -31,6 +31,7 @@ export async function saveTest(_prevState: Record<string, unknown>, data: TestSc
       durationMinutes: validatedData.durationMinutes,
       problemIds: validatedData.problems,
       rules: validatedData.rules,
+      shuffleQuestions: validatedData.shuffleQuestions,
       author: "Admin"
     };
 

@@ -19,6 +19,7 @@ interface MongoTest {
   durationMinutes?: number;
   questions?: QuestionReference[];
   rules?: string[];
+  shuffleQuestions?: boolean;
   status?: string;
   joinId?: string;
   createdAt?: string;
@@ -91,6 +92,7 @@ export default async function AdminTestEditPage({
       durationMinutes: testDataRaw.durationMinutes || 60,
       problems: (testDataRaw.questions || []).map((q) => typeof q === 'string' ? q : (q._id || q.id || String(q))),
       rules: testDataRaw.rules || [],
+      shuffleQuestions: testDataRaw.shuffleQuestions ?? false,
       status: (testDataRaw.status || "waiting") as "waiting" | "ongoing" | "completed",
       totalQuestions: testDataRaw.questions?.length || 0,
       participantsInProgress: 0,

@@ -373,7 +373,7 @@ const getAdminContests = async (req, res, next) => {
 // @desc Create a new contest
 const createContest = async (req, res, next) => {
     try {
-        const { title, description, duration, durationMinutes, problemIds, rules, author } = req.body;
+        const { title, description, duration, durationMinutes, problemIds, rules, author, shuffleQuestions } = req.body;
 
         if (!isNonEmptyString(title)) {
             return res.status(400).json({ success: false, error: 'Title is required' });
@@ -421,6 +421,7 @@ const createContest = async (req, res, next) => {
                     durationMinutes: durationMinutesNum,
                     questions,
                     rules,
+                    shuffleQuestions: Boolean(shuffleQuestions),
                     joinId,
                     author: author || "Admin"
                 });
@@ -465,6 +466,7 @@ const cloneContest = async (req, res, next) => {
                     durationMinutes: originalContest.durationMinutes,
                     questions: originalContest.questions,
                     rules: originalContest.rules,
+                    shuffleQuestions: originalContest.shuffleQuestions,
                     joinId,
                     author: originalContest.author || "Admin"
                 });
@@ -486,7 +488,7 @@ const cloneContest = async (req, res, next) => {
 const updateContest = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { title, description, duration, durationMinutes, problemIds, rules, visibility } = req.body;
+        const { title, description, duration, durationMinutes, problemIds, rules, visibility, shuffleQuestions } = req.body;
 
         const existingContest = await Contest.findById(id).select('startTime endTime durationMinutes questions').lean();
         if (!existingContest) return res.status(404).json({ success: false, error: 'Contest not found' });
@@ -512,6 +514,7 @@ const updateContest = async (req, res, next) => {
         }
 
         const updates = { title, description, rules, visibility };
+        if (shuffleQuestions !== undefined) updates.shuffleQuestions = Boolean(shuffleQuestions);
         if (durationMinutesNum !== undefined) {
             updates.durationMinutes = durationMinutesNum;
         }

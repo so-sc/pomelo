@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Submission = require('../models/Submissions');
 const { toProblemView } = require('../utils/toProblemView');
 const { isManuallyEnded, attemptDeadline, lastDeadline } = require('../utils/contestTime');
+const { orderQuestionsFor } = require('../utils/questionOrder');
 
 // Stands in for "no submittedAt" so Ongoing entries sort last, matching the
 // Infinity the old in-memory comparator used.
@@ -77,7 +78,8 @@ const getContestData = async (req, res, next) => {
     try {
         const contest = req.contest;
 
-        const questions = contest.questions || [];
+        // In the candidate's own order when the test shuffles questions.
+        const questions = orderQuestionsFor(contest, req.user.id);
 
         // Fetch User Submission to get saved state
         // Middleware likely attached submission

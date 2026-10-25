@@ -24,5 +24,6 @@ export interface Test {
   participants?: TestParticipant[];
   joinId: string;
   rules?: string[];
+  shuffleQuestions?: boolean;
   createdAt: string;
 }

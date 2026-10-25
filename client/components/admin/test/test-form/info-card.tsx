@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDownIcon, FileText, Hourglass } from "lucide-react";
 import {
   Popover,
@@ -297,6 +298,27 @@ export default function TestBasicCard() {
             )}
           />
         </div>
+        <FormField
+          control={control}
+          name="shuffleQuestions"
+          render={({ field }) => (
+            <FormItem className="flex items-start gap-3 space-y-0">
+              <FormControl>
+                <Checkbox
+                  checked={field.value === true}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  className="mt-0.5"
+                />
+              </FormControl>
+              <div className="space-y-1">
+                <FormLabel className="font-normal">Shuffle question order for candidates</FormLabel>
+                <p className="text-xs text-muted-foreground">
+                  Each candidate gets their own order, which stays the same across reloads and re-logins.
+                </p>
+              </div>
+            </FormItem>
+          )}
+        />
         {/* Hidden fields to ensure computed values are passed */}
         <FormField
           control={control}

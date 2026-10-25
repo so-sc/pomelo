@@ -24,6 +24,7 @@ export const testSchema = z.object({
   endsAt: z.iso.datetime(),
   problems: z.array(z.string()),
   rules: z.array(z.string()).default([]),
+  shuffleQuestions: z.boolean().default(false),
 });
 
 export type TestSchema = z.infer<typeof testSchema>;
