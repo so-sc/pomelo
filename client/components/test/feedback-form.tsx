@@ -39,11 +39,7 @@ export default function FeedbackForm({
       });
       if (result.success || result.alreadySubmitted) setSubmitted(true);
       else
-        setError(
-          result.error ||
-            result.message ||
-            "Feedback could not be saved. Please try again.",
-        );
+        setError(result.error || "Feedback could not be saved. Please try again.");
     } catch {
       setError(
         "Feedback could not be saved. Check your connection and try again.",

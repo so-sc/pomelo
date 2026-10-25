@@ -52,10 +52,10 @@ const mcqLimiter = rateLimit({
 
 // Keep feedback retries independent of the candidate's code-submission quota.
 const feedbackLimiter = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: MINUTE,
   max: 10,
-  keyGenerator: (req) => req.user?.id || rateLimit.ipKeyGenerator(req.ip),
-  message: { success: false, error: 'Too many feedback requests, please try again after a minute', rateLimited: true },
+  keyGenerator: userKey,
+  message: limited('Too many feedback requests, please try again after a minute'),
   standardHeaders: true,
   legacyHeaders: false,
 });

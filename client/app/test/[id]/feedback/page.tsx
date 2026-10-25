@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { fetchBackend } from "@/lib/fetch";
+import { withCallbackUrl } from "@/lib/return-url";
 import { Button } from "@/components/ui/button";
 import FeedbackForm from "@/components/test/feedback-form";
 
@@ -11,7 +12,7 @@ export default async function FeedbackPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  if (!(await auth())?.backendToken) redirect("/auth/login");
+  if (!(await auth())?.backendToken) redirect(withCallbackUrl("/auth/login", `/test/${id}/feedback`));
 
   let result;
   try {
