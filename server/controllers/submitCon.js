@@ -15,6 +15,22 @@ const resolveContestFromRequest = async (req) => {
 const findContestQuestion = (contest, questionId) =>
     (contest?.questions || []).find((q) => String(q._id) === String(questionId));
 
+const MCQ_TYPES = ["Single Correct", "Multiple Correct"];
+
+// Full marks only for exactly the correct set of options. correctAnswer is stored as
+// option indices, e.g. "0" or "0,2".
+const scoreMcq = (question, answers) => {
+    if (!MCQ_TYPES.includes(question.questionType)) return 0;
+    const correct = new Set(String(question.correctAnswer ?? "").split(",")
+        .map((idx) => question.options?.[parseInt(idx, 10)])
+        .filter(Boolean));
+    const given = new Set(answers);
+    if (correct.size === 0) return 0;
+    if (question.questionType === "Single Correct" && answers.length !== 1) return 0;
+    const exact = given.size === correct.size && [...given].every((a) => correct.has(a));
+    return exact ? Math.floor(question.marks || 0) : 0;
+};
+
 // Helper function to remove trailing whitespace/newlines from output
 const removeTrailingLineCommands = (output) => {
     if (typeof output !== 'string') return output;
@@ -304,8 +320,12 @@ const saveSubmissionEntry = async (contestId, userId, questionId, entry, { keepB
         { returnDocument: "after", runValidators: true }
     );
 
+    // Only appends when the question has no entry yet: two first saves racing must not
+    // both push, or totalScore would count the question twice. If the doc exists but
+    // already holds the question, the upsert hits the unique index and the retry below
+    // updates that entry instead.
     const appendEntry = (options = {}) => Submission.findOneAndUpdate(
-        { contest: contestId, user: userId },
+        { contest: contestId, user: userId, "submissions.question": { $ne: questionId } },
         { $push: { submissions: entry } },
         { returnDocument: "after", runValidators: true, ...options }
     );
@@ -319,10 +339,11 @@ const saveSubmissionEntry = async (contestId, userId, questionId, entry, { keepB
             doc = await appendEntry({ upsert: true });
         } catch (err) {
             if (err.code !== 11000) throw err;
-            // Lost the create race — retry now that the doc exists.
+            // Lost the create race, or the entry already exists — retry now that the doc exists.
             doc = (await replaceEntry()) || (keepBest && await recordLatestOnly()) || (await appendEntry());
         }
     }
+    if (!doc) throw new Error("Could not save submission entry");
 
     // Recomputed server-side so concurrent submissions can't clobber each other.
     await Submission.updateOne(
@@ -509,44 +530,27 @@ const saveMCQ = async (req, res, next) => {
         const questionDoc = findContestQuestion(contest, questionId);
         if (!questionDoc) return res.status(404).json({ error: "Question not found in this test" });
 
-        let score = 0;
-        const submittedAnswers = Array.isArray(answer) ? answer : [answer];
-
-        // correctAnswer in DB is a string of indices, e.g., "0" or "0,2"
-        const correctIndices = (questionDoc.correctAnswer || '').split(',')
-            .map(idx => parseInt(idx.trim(), 10))
-            .filter(n => !isNaN(n));
-        const correctTexts = correctIndices.map(idx => questionDoc.options[idx]).filter(Boolean);
-
-        const isMultiple = questionDoc.questionType === "Multiple Correct";
-
-        if (isMultiple) {
-            // All correct answers must be present and no incorrect ones
-            const isCorrect = submittedAnswers.length === correctTexts.length &&
-                submittedAnswers.every(ans => correctTexts.includes(ans));
-            if (isCorrect) score = questionDoc.marks || 0;
-        } else {
-            // Single correct
-            if (submittedAnswers.includes(correctTexts[0])) {
-                score = questionDoc.marks || 0;
-            }
+        if (!MCQ_TYPES.includes(questionDoc.questionType)) {
+            return res.status(400).json({ error: "Not a multiple choice question" });
         }
 
+        const answers = answer == null ? [] : [].concat(answer);
         const entry = {
             question: questionId,
-            answer: Array.isArray(answer) ? answer : [answer],
-            score: Math.floor(score),
+            answer: answers,
+            score: scoreMcq(questionDoc, answers),
             submittedAt: new Date()
         };
 
         // Auto-saves overlap, so this must not rewrite the whole submissions array.
         await saveSubmissionEntry(contestId, userId, questionId, entry);
 
-        return res.status(200).json({ success: true, score });
+        // No score in the response: it would let a candidate probe for the right option.
+        return res.status(200).json({ success: true });
     } catch (error) {
         next(error);
     }
 };
 
 // executeTestCases is exported to exercise the execution path without Express/Mongo/auth.
-module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };
+module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, scoreMcq, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };
