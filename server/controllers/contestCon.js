@@ -1,6 +1,7 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
 const { toProblemView } = require('../utils/toProblemView');
+const { isManuallyEnded, attemptDeadline, lastDeadline } = require('../utils/contestTime');
 
 // Stands in for "no submittedAt" so Ongoing entries sort last, matching the
 // Infinity the old in-memory comparator used.
@@ -16,7 +17,7 @@ const validateJoinId = async (req, res, next) => {
         if (typeof joinId !== 'string' || !/^\d{6}$/.test(joinId.trim())) {
             return res.status(400).json({
                 success: false,
-                message: "Join ID must be a 6-digit code."
+                error: "Join ID must be a 6-digit code."
             });
         }
 
@@ -26,7 +27,7 @@ const validateJoinId = async (req, res, next) => {
         if (!contest) {
             return res.status(404).json({
                 success: false,
-                message: "Invalid Join ID. No test found with this code."
+                error: "Invalid Join ID. No test found with this code."
             });
         }
 
@@ -50,12 +51,12 @@ const manageViolations = async (req, res, next) => {
         const contest = await Contest.findById(req.params.id);
 
         if (!contest) {
-            return res.status(404).json({ message: 'Contest not found' });
+            return res.status(404).json({ success: false, error: 'Contest not found' });
         }
 
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, error: 'User not found' });
         }
 
         // Add violation logic here
@@ -108,11 +109,7 @@ const getContestLanding = async (req, res, next) => {
         const contest = req.contest;
         const now = new Date();
         const start = new Date(contest.startTime);
-        // Check if contest is manually marked as Completed/Ended
-        const status = contest.status ? contest.status.toLowerCase() : '';
-        const isManuallyEnded = status === 'completed' || status === 'ended';
-
-        const canStart = now >= start && now <= new Date(contest.endTime) && !isManuallyEnded;
+        const canStart = now >= start && now <= new Date(contest.endTime) && !isManuallyEnded(contest);
 
         return res.json({
             success: true,
@@ -160,9 +157,7 @@ const getContestData = async (req, res, next) => {
             });
         }
 
-        const deadline = submission
-            ? new Date(submission.startedAt.getTime() + (contest.durationMinutes || 0) * 60000)
-            : new Date(contest.endTime);
+        const deadline = submission ? attemptDeadline(contest, submission) : new Date(contest.endTime);
         const timeRemaining = Math.max(0, (deadline - new Date()) / 1000);
 
         // Optional ?qid= trims every other question down to {id, type} —
@@ -195,7 +190,7 @@ const startTest = async (req, res, next) => {
     try {
         console.log("StartTest: Initiated");
         const contest = req.contest;
-        const userId = req.user.id || req.user._id || req.user.sub;
+        const userId = req.user.id;
         console.log("StartTest: User ID:", userId);
 
         const contestId = contest._id;
@@ -229,7 +224,7 @@ const startTest = async (req, res, next) => {
             console.log("StartTest: Resuming existing submission:", submission._id);
         }
 
-        const deadline = new Date(submission.startedAt.getTime() + (contest.durationMinutes || 0) * 60000);
+        const deadline = attemptDeadline(contest, submission);
 
         return res.json({
             success: true,
@@ -254,21 +249,18 @@ const getLeaderboard = async (req, res, next) => {
             .select('title endTime durationMinutes status questions.marks')
             .lean();
         if (!contest) {
-            return res.status(404).json({ success: false, message: 'Contest not found' });
+            return res.status(404).json({ success: false, error: 'Contest not found' });
         }
 
         const now = new Date();
         // A late joiner may still legitimately be attempting past endTime,
         // so wait for the last possible personal deadline before unlocking.
-        const lastPossibleDeadline = new Date(new Date(contest.endTime).getTime() + (contest.durationMinutes || 0) * 60000);
-        const isEnded =
-            now > lastPossibleDeadline ||
-            ['completed', 'ended'].includes((contest.status || '').toLowerCase());
+        const isEnded = now > lastDeadline(contest) || isManuallyEnded(contest);
 
         if (!isEnded) {
             return res.status(403).json({
                 success: false,
-                message: 'Leaderboard is not available until the contest ends.'
+                error: 'Leaderboard is not available until the contest ends.'
             });
         }
 
@@ -340,7 +332,7 @@ const endTest = async (req, res, next) => {
     try {
         console.log("EndTest: Initiated");
         const contestId = req.params.id || req.body.contestId || (req.contest && req.contest._id);
-        const userId = req.user.id || req.user._id || req.user.sub;
+        const userId = req.user.id;
         const { forcedSubmission = false, autoSubmitReason } = req.body || {};
         console.log("EndTest: Contest ID:", contestId, "User ID:", userId);
 

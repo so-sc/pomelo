@@ -10,7 +10,7 @@ export async function endTestAction(id: string, force: boolean) {
         });
 
         if (!json.success) {
-            throw new Error(json.error || json.message || "Failed to end test");
+            throw new Error(json.error || "Failed to end test");
         }
 
         revalidatePath(`/admin/tests/${id}`);

@@ -33,7 +33,7 @@ export default function JoinContestPage() {
       if (result.success) {
         router.push(`/test/${result.contestId}`);
       } else {
-        toast.error(result.error || result.message || "Invalid Join ID");
+        toast.error(result.error || "Invalid Join ID");
       }
     } catch (error) {
       toast.error("Connection failed. Check if backend is running.");

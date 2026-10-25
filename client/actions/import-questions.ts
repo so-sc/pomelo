@@ -22,7 +22,7 @@ export async function importQuestions(type: "mcq" | "coding", formData: FormData
         if (!json.success) {
             return {
                 success: false,
-                message: json.error || json.message || "Failed to import questions",
+                message: json.error || "Failed to import questions",
                 errors: json.errors,
             };
         }

@@ -7,10 +7,10 @@ const requireAuth = () => async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!process.env.AUTH_SECRET) {
       console.error('AUTH_SECRET is not configured');
-      return res.status(500).json({ message: 'Internal Server Error' });
+      return res.status(500).json({ success: false, error: 'Internal Server Error' });
     }
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Unauthorized: No token provided' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: No token provided' });
     }
 
     const token = authHeader.split(' ')[1];
@@ -21,20 +21,18 @@ const requireAuth = () => async (req, res, next) => {
       
       // Transform payload to match expected user structure
       req.user = {
-        _id: payload.userId,
         id: payload.userId,
         role: payload.role,
         email: payload.email
       };
-      req.auth = { userId: payload.userId };
       next();
     } catch (err) {
       console.error('Token verification failed:', err.message);
-      return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid token' });
     }
   } catch (error) {
     console.error('Auth Middleware Error:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 };
 

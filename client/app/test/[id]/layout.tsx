@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { getBaseUrl } from "@/lib/env";
+import { fetchBackend } from "@/lib/fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +24,7 @@ export async function generateMetadata({
   }
 
   try {
-    const res = await fetch(`${getBaseUrl()}/api/test/${id}`, {
-      headers: {
-        "Authorization": `Bearer ${session.backendToken}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    const result = await res.json();
+    const result = await fetchBackend(`/api/test/${id}`);
     if (result.success && result.data) {
       return {
         title: result.data.title,

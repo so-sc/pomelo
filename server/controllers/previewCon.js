@@ -1,11 +1,11 @@
 const Question = require("../models/Question");
-const { languageIds } = require("../utils/languages");
 const { toProblemView } = require("../utils/toProblemView");
 const {
     streamExecution,
     scoreResults,
+    resolveExecutionRequest,
+    runnableTestCases,
     DISCLOSURE,
-    MAX_CODE_LENGTH,
 } = require("./submitCon");
 
 const resolveQuestion = async (req, res) => {
@@ -15,33 +15,6 @@ const resolveQuestion = async (req, res) => {
         return null;
     }
     return question;
-};
-
-const resolveExecutionRequest = (req, res) => {
-    const { language, isBase64 } = req.body;
-    let { code } = req.body;
-
-    if (isBase64 && code) {
-        code = Buffer.from(code, "base64").toString("utf-8");
-    }
-
-    if (!code || !language) {
-        res.status(400).json({ success: false, error: "Missing required fields" });
-        return null;
-    }
-
-    if (code.length > MAX_CODE_LENGTH) {
-        res.status(400).json({ success: false, error: "Code exceeds maximum allowed length" });
-        return null;
-    }
-
-    const languageId = languageIds[language.toLowerCase()];
-    if (!languageId) {
-        res.status(400).json({ success: false, error: "Unsupported language" });
-        return null;
-    }
-
-    return { code, language, languageId };
 };
 
 // @desc    Question in the candidate-facing shape, for admin preview
@@ -68,9 +41,7 @@ const runPreview = async (req, res, next) => {
         const execution = resolveExecutionRequest(req, res);
         if (!execution) return;
 
-        const testcases = Array.isArray(question.testcases) ? question.testcases : [];
-        const visible = testcases.filter(tc => tc.isVisible);
-        const testToRun = visible.length > 0 ? visible : (testcases[0] ? [testcases[0]] : []);
+        const testToRun = runnableTestCases(question);
 
         if (testToRun.length === 0) {
             return res.status(400).json({ success: false, error: "No test cases configured" });

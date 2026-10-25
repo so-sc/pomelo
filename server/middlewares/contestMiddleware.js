@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
 const { getOrSet } = require('../utils/simpleCache');
+const { isManuallyEnded, attemptDeadline } = require('../utils/contestTime');
 
 const CONTEST_TTL_MS = 60 * 60_000;
 
@@ -41,15 +42,11 @@ const validateContest = (options = {}) => async (req, res, next) => {
             return res.status(403).json({ success: false, error: 'Contest has not started yet' });
         }
 
-        // Check if contest is manually marked as Completed/Ended or Time is up
-        const status = contest.status ? contest.status.toLowerCase() : '';
-        const isManuallyEnded = status === 'completed' || status === 'ended';
-
         // Fetch the user's submission once, shared by checkEnded (personal deadline)
         // and checkAttemptStatus below — avoids a duplicate query.
         let submission = null;
         if ((options.checkEnded || options.checkAttemptStatus || options.requireAttempt) && req.user) {
-            const userId = req.user.id || req.user._id || req.user.sub;
+            const userId = req.user.id;
             // Runs on every attempt request: skip the bulky per-test-case results and
             // don't hydrate, since every consumer only reads it.
             submission = await Submission.findOne({ contest: contest._id, user: userId })
@@ -71,14 +68,14 @@ const validateContest = (options = {}) => async (req, res, next) => {
             // deciding that late joiners should get a shortened attempt instead.
             const activeSubmission = submission && submission.status !== 'Completed' ? submission : null;
             const deadline = activeSubmission
-                ? new Date(activeSubmission.startedAt.getTime() + (contest.durationMinutes || 0) * 60000)
+                ? attemptDeadline(contest, activeSubmission)
                 : endTime;
 
             // A manual "End Test" blocks new/not-yet-started attempts but lets someone
             // already mid-attempt keep going until their own deadline — that's the
             // whole point of a "soft" end vs. force-ending (which completes every
             // Ongoing submission up front, so activeSubmission is null afterward).
-            if ((isManuallyEnded && !activeSubmission) || now > deadline) {
+            if ((isManuallyEnded(contest) && !activeSubmission) || now > deadline) {
                 return res.status(403).json({ success: false, error: 'Contest has ended' });
             }
         }

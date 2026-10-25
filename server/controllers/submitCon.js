@@ -1,16 +1,6 @@
 const Submission = require("../models/Submissions");
-const Contest = require("../models/Contest");
 const { languageIds } = require("../utils/languages");
 const { getJudge, serializeValues, validateValues } = require("@pomelo/code-gen");
-
-const resolveContestFromRequest = async (req) => {
-    const contestId = req.params.id || req.body.contestId || req.contest?._id;
-    if (!contestId) return { contestId: null, contest: null };
-    if (req.contest) return { contestId, contest: req.contest };
-
-    const contest = await Contest.findById(contestId).lean();
-    return { contestId, contest };
-};
 
 const findContestQuestion = (contest, questionId) =>
     (contest?.questions || []).find((q) => String(q._id) === String(questionId));
@@ -355,56 +345,75 @@ const saveSubmissionEntry = async (contestId, userId, questionId, entry, { keepB
     );
 };
 
+// Validates the code/language part of a run or submit request; responds and returns null
+// when it's invalid. Shared with the admin preview handlers.
+const resolveExecutionRequest = (req, res) => {
+    const { language, isBase64 } = req.body;
+    let { code } = req.body;
+
+    if (isBase64 && code) {
+        code = Buffer.from(code, "base64").toString("utf-8");
+    }
+
+    if (!code || !language) {
+        res.status(400).json({ success: false, error: "Missing required fields" });
+        return null;
+    }
+
+    if (code.length > MAX_CODE_LENGTH) {
+        res.status(400).json({ success: false, error: "Code exceeds maximum allowed length" });
+        return null;
+    }
+
+    const languageId = languageIds[language.toLowerCase()];
+    if (!languageId) {
+        res.status(400).json({ success: false, error: "Unsupported language" });
+        return null;
+    }
+
+    return { code, language, languageId };
+};
+
+// The question being answered, from the contest validateContest attached; responds and
+// returns null when it isn't part of this test.
+const resolveContestQuestion = (req, res) => {
+    const { questionId } = req.body;
+    if (typeof questionId !== "string" || !questionId) {
+        res.status(400).json({ success: false, error: "Invalid questionId" });
+        return null;
+    }
+    const question = findContestQuestion(req.contest, questionId);
+    if (!question) {
+        res.status(404).json({ success: false, error: "Question not found in this test" });
+        return null;
+    }
+    return question;
+};
+
+// Visible test cases for a run; the first case when none is marked visible, so the
+// candidate still gets feedback.
+const runnableTestCases = (question) => {
+    const testcases = Array.isArray(question.testcases) ? question.testcases : [];
+    const visible = testcases.filter((tc) => tc.isVisible);
+    return visible.length > 0 ? visible : testcases.slice(0, 1);
+};
+
 // @desc    Run code against visible test cases only
 const runCode = async (req, res, next) => {
     try {
-        const { questionId, language, isBase64 } = req.body;
-        let { code } = req.body;
-        
-        if (isBase64 && code) {
-            code = Buffer.from(code, 'base64').toString('utf-8');
-        }
+        const question = resolveContestQuestion(req, res);
+        if (!question) return;
+        const execution = resolveExecutionRequest(req, res);
+        if (!execution) return;
 
-        if (!questionId || !code || !language) {
-            return res.status(400).json({ success: false, error: "Missing required fields" });
-        }
-
-        if (typeof questionId !== "string") {
-            return res.status(400).json({ success: false, error: "Invalid questionId" });
-        }
-
-        if (code.length > MAX_CODE_LENGTH) {
-            return res.status(400).json({ success: false, error: "Code exceeds maximum allowed length" });
-        }
-
-        const { contestId, contest } = await resolveContestFromRequest(req);
-        if (!contestId) {
-            return res.status(400).json({ success: false, error: "Missing contestId" });
-        }
-        if (!contest) {
-            return res.status(404).json({ success: false, error: "Contest not found" });
-        }
-
-        const question = findContestQuestion(contest, questionId);
-        if (!question) return res.status(404).json({ success: false, error: "Question not found in this test" });
-
-        const languageId = languageIds[language.toLowerCase()];
-        if (!languageId) return res.status(400).json({ success: false, error: "Unsupported language" });
-
-        const visibleTestCases = (Array.isArray(question.testcases) ? question.testcases : []).filter(tc => tc.isVisible);
-
-        // If no testcases are marked visible, take the first one as a fallback for user feedback
-        const testToRun = visibleTestCases.length > 0 ? visibleTestCases : (question.testcases?.[0] ? [question.testcases[0]] : []);
-
+        const testToRun = runnableTestCases(question);
         if (testToRun.length === 0) {
             return res.status(400).json({ success: false, error: "No test cases configured" });
         }
 
         await streamExecution(res, {
             question,
-            code,
-            language,
-            languageId,
+            ...execution,
             testCases: testToRun,
             disclosure: DISCLOSURE.VISIBLE,
             buildDone: (results) => ({
@@ -425,43 +434,19 @@ const runCode = async (req, res, next) => {
 // @desc    Submit code and save results
 const submitCode = async (req, res, next) => {
     try {
-        const { questionId, language, isBase64 } = req.body;
-        let { code } = req.body;
-        
-        if (isBase64 && code) {
-            code = Buffer.from(code, 'base64').toString('utf-8');
-        }
-
-        const userId = req.user.id || req.user._id || req.user.sub;
-        const { contestId, contest } = await resolveContestFromRequest(req);
-        // contestId is validated by validateContest middleware, mounted on /:id.
-
-        if (!contestId || !questionId || !code || !language) {
-            return res.status(400).json({ error: "Missing required fields" });
-        }
-
-        if (typeof questionId !== "string") {
-            return res.status(400).json({ error: "Invalid questionId" });
-        }
-
-        if (code.length > MAX_CODE_LENGTH) {
-            return res.status(400).json({ error: "Code exceeds maximum allowed length" });
-        }
-
-        if (!contest) {
-            return res.status(404).json({ error: "Contest not found" });
-        }
-
-        const question = findContestQuestion(contest, questionId);
-        if (!question) return res.status(404).json({ error: "Question not found in this test" });
-
-        const languageId = languageIds[language.toLowerCase()];
-        if (!languageId) return res.status(400).json({ error: "Unsupported language" });
+        const userId = req.user.id;
+        const contestId = req.contest._id;
+        const question = resolveContestQuestion(req, res);
+        if (!question) return;
+        const execution = resolveExecutionRequest(req, res);
+        if (!execution) return;
+        const { code, language, languageId } = execution;
+        const questionId = req.body.questionId;
 
         // Submit runs against ALL test cases for scoring
         const allTestCases = Array.isArray(question.testcases) ? question.testcases : [];
         if (allTestCases.length === 0) {
-            return res.status(400).json({ error: "No test cases configured" });
+            return res.status(400).json({ success: false, error: "No test cases configured" });
         }
 
         await streamExecution(res, {
@@ -515,25 +500,14 @@ const submitCode = async (req, res, next) => {
 const saveMCQ = async (req, res, next) => {
     try {
         const { questionId, answer } = req.body;
-        const userId = req.user.id || req.user._id || req.user.sub;
+        const userId = req.user.id;
+        const contestId = req.contest._id;
 
-        const { contestId, contest } = await resolveContestFromRequest(req);
-
-        if (!contestId || !questionId) {
-            return res.status(400).json({ error: "Missing required fields" });
-        }
-
-        if (typeof questionId !== "string") {
-            return res.status(400).json({ error: "Invalid questionId" });
-        }
-
-        if (!contest) return res.status(404).json({ error: "Contest not found" });
-
-        const questionDoc = findContestQuestion(contest, questionId);
-        if (!questionDoc) return res.status(404).json({ error: "Question not found in this test" });
+        const questionDoc = resolveContestQuestion(req, res);
+        if (!questionDoc) return;
 
         if (!MCQ_TYPES.includes(questionDoc.questionType)) {
-            return res.status(400).json({ error: "Not a multiple choice question" });
+            return res.status(400).json({ success: false, error: "Not a multiple choice question" });
         }
 
         const answers = answer == null ? [] : [].concat(answer);
@@ -555,4 +529,4 @@ const saveMCQ = async (req, res, next) => {
 };
 
 // executeTestCases is exported to exercise the execution path without Express/Mongo/auth.
-module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, scoreMcq, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };
+module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, scoreMcq, resolveExecutionRequest, runnableTestCases, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };

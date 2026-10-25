@@ -10,7 +10,7 @@ export async function deleteTestAction(id: string) {
         });
 
         if (!json.success) {
-            throw new Error(json.error || json.message || "Failed to delete test");
+            throw new Error(json.error || "Failed to delete test");
         }
 
         revalidatePath("/admin/tests");

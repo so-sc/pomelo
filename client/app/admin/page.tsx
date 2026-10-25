@@ -1,29 +1,18 @@
 import React from "react";
 import HeroSection, { DashboardStats } from "@/components/admin/hero-section";
-import { auth } from "@/auth";
 import { Test } from "@/types/test";
-import { getBaseUrl } from "@/lib/env";
+import { fetchBackend } from "@/lib/fetch";
 
 export const dynamic = "force-dynamic";
 
 async function getAdminStats() {
   try {
-    const session = await auth();
-    const token = session?.backendToken;
-
-    const res = await fetch(`${getBaseUrl()}/api/admin/stats`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      console.error("Failed to fetch admin stats:", await res.text());
+    const data = await fetchBackend("/api/admin/stats");
+    if (!data.success) {
+      console.error("Failed to fetch admin stats:", data.error);
       return null;
     }
-
-    return await res.json();
+    return data;
   } catch (error) {
     console.error("Error fetching admin stats:", error);
     return null;

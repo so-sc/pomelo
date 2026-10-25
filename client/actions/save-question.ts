@@ -56,7 +56,7 @@ export async function saveQuestion(_prevState: Record<string, unknown>, data: Qu
     });
 
     if (!json.success) {
-      throw new Error(json.error || json.message || `Failed to ${isUpdate ? 'update' : 'save'} question`);
+      throw new Error(json.error || `Failed to ${isUpdate ? 'update' : 'save'} question`);
     }
 
     revalidatePath("/admin/questions");

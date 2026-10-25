@@ -10,7 +10,7 @@ export async function cloneTestAction(id: string) {
         });
 
         if (!json.success) {
-            throw new Error(json.error || json.message || "Failed to clone test");
+            throw new Error(json.error || "Failed to clone test");
         }
 
         revalidatePath("/admin/tests");

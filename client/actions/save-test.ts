@@ -45,7 +45,7 @@ export async function saveTest(_prevState: Record<string, unknown>, data: TestSc
     });
 
     if (!json.success) {
-      throw new Error(json.error || json.message || `Failed to ${isUpdate ? 'update' : 'save'} test`);
+      throw new Error(json.error || `Failed to ${isUpdate ? 'update' : 'save'} test`);
     }
 
     revalidatePath("/admin/tests");

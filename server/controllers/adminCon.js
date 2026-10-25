@@ -12,6 +12,7 @@ const {
 } = require("../utils/questionsIO");
 const { escapeRegex } = require("../utils/escapeRegex");
 const { findQuestionsInOrder } = require("../utils/findQuestionsInOrder");
+const { ENDED_STATUSES, lastDeadline, contestStatus } = require("../utils/contestTime");
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 const toNumber = (value) => {
@@ -274,12 +275,8 @@ const deleteQuestion = async (req, res, next) => {
 // documents where the field is absent.
 // A late joiner's personal deadline can run past endTime, so a contest counts as
 // running until the last possible deadline.
-const isContestRunning = (contest, now) => {
-    const lastPossibleDeadline = new Date(new Date(contest.endTime).getTime() + (contest.durationMinutes || 0) * 60000);
-    return now >= new Date(contest.startTime) && now <= lastPossibleDeadline;
-};
+const isContestRunning = (contest, now) => now >= new Date(contest.startTime) && now <= lastDeadline(contest);
 
-const ENDED_STATUSES = ['completed', 'ended'];
 const statusQuery = (status, now) => ({
     completed: { $or: [{ status: { $in: ENDED_STATUSES } }, { status: { $nin: ENDED_STATUSES }, endTime: { $lt: now } }] },
     ongoing: { status: { $nin: ENDED_STATUSES }, startTime: { $lte: now }, endTime: { $gte: now } },
@@ -344,9 +341,6 @@ const getAdminContests = async (req, res, next) => {
         });
 
         const summary = contests.map(c => {
-            const start = new Date(c.startTime);
-            const end = new Date(c.endTime);
-
             const totalMinutes = c.durationMinutes || 0;
             const hours = Math.floor(totalMinutes / 60);
             const minutes = totalMinutes % 60;
@@ -359,27 +353,12 @@ const getAdminContests = async (req, res, next) => {
             const { total = 0, completed = 0 } = countsByContest[c._id.toString()] || {};
             const ongoing = total - completed;
 
-            // Compute Status Dynamically, unless manually ended/completed via the admin panel
-            let computedStatus = 'waiting';
-            const contestStatus = (c.status || '').toLowerCase();
-            const isManuallyEnded = contestStatus === 'completed' || contestStatus === 'ended';
-
-            if (isManuallyEnded) {
-                computedStatus = 'completed';
-            } else {
-                if (now > end) {
-                    computedStatus = 'completed';
-                } else if (now >= start && now <= end) {
-                    computedStatus = 'ongoing';
-                }
-            }
-
             return {
                 id: c._id,
                 title: c.title,
                 description: c.description,
                 createdAt: c.createdAt,
-                status: computedStatus,
+                status: contestStatus(c, now),
                 participants: total,
                 participantsCompleted: completed,
                 participantsInProgress: ongoing,
@@ -802,10 +781,6 @@ const deleteContest = async (req, res, next) => {
 
         const contest = await Contest.findById(id).select('status startTime endTime durationMinutes').lean();
         if (!contest) return res.status(404).json({ success: false, error: 'Contest not found' });
-
-        if (contest.status === 'ongoing') {
-            return res.status(400).json({ success: false, error: 'Cannot delete an ongoing contest' });
-        }
 
         if (isContestRunning(contest, new Date())) {
             return res.status(400).json({ success: false, error: 'Cannot delete a contest that is currently active (Time-based protection).' });

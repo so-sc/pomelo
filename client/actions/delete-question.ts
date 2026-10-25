@@ -10,7 +10,7 @@ export async function deleteQuestion(id: string) {
         });
 
         if (!json.success) {
-            throw new Error(json.error || json.message || "Failed to delete question");
+            throw new Error(json.error || "Failed to delete question");
         }
 
         revalidatePath("/admin");

@@ -52,7 +52,7 @@ export async function register(prevState: string | undefined, formData: FormData
         const data = await res.json();
 
         if (!res.ok || !data.success) {
-            return data.error || data.message || "Registration failed";
+            return data.error || "Registration failed";
         }
 
         return "success";

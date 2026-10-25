@@ -11,26 +11,26 @@ const handleLogin = async (req, res, next) => {
         const { email, password } = req.body;
 
         if (!isProviderEnabled(CREDENTIALS)) {
-            return res.status(403).json({ code: 'PasswordLoginDisabled', message: 'Password login is disabled' });
+            return res.status(403).json({ success: false, code: 'PasswordLoginDisabled', error: 'Password login is disabled' });
         }
 
         if (!email || !password) {
-            return res.status(400).json({ message: 'Email and password are required' });
+            return res.status(400).json({ success: false, error: 'Email and password are required' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
         if (!user) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
         // Provider-only accounts have no password to compare against.
         if (!user.passwordHash) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
         const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
         if (!passwordsMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
 
         // Generate JWT token
@@ -67,26 +67,26 @@ const handleRegister = async (req, res, next) => {
         const { email, password, name } = req.body;
 
         if (!isProviderEnabled(CREDENTIALS)) {
-            return res.status(403).json({ code: 'RegistrationDisabled', message: 'Registration is disabled' });
+            return res.status(403).json({ success: false, code: 'RegistrationDisabled', error: 'Registration is disabled' });
         }
 
         if (!email || !password || !name) {
-            return res.status(400).json({ message: 'All fields are required' });
+            return res.status(400).json({ success: false, error: 'All fields are required' });
         }
 
         if (!EMAIL_REGEX.test(email)) {
-            return res.status(400).json({ message: 'Invalid email format' });
+            return res.status(400).json({ success: false, error: 'Invalid email format' });
         }
 
         if (password.length < 6) {
-            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+            return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
         }
 
         const normalizedEmail = email.toLowerCase().trim();
 
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
-            return res.status(409).json({ message: 'Email is already registered' });
+            return res.status(409).json({ success: false, error: 'Email is already registered' });
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
@@ -186,24 +186,24 @@ const handleOAuth = async (req, res, next) => {
         const providerId = req.params.provider;
         const provider = Object.hasOwn(oauthProviders, providerId) ? oauthProviders[providerId] : null;
         if (!provider || !isProviderEnabled(providerId)) {
-            return res.status(403).json({ code: 'OAuthProviderDisabled', message: 'This sign-in method is disabled' });
+            return res.status(403).json({ success: false, code: 'OAuthProviderDisabled', error: 'This sign-in method is disabled' });
         }
 
         let verified;
         try {
             verified = await provider.verify(req.body || {}, process.env);
         } catch {
-            return res.status(401).json({ code: 'OAuthSignInFailed', message: 'Invalid sign-in token' });
+            return res.status(401).json({ success: false, code: 'OAuthSignInFailed', error: 'Invalid sign-in token' });
         }
 
         const { profile, error } = resolveProfile(verified);
         if (error) {
-            return res.status(error.status).json({ code: error.code, message: error.message });
+            return res.status(error.status).json({ success: false, code: error.code, error: error.message });
         }
 
         const user = await findOrCreateOAuthUser(provider.id, profile);
         if (!user) {
-            return res.status(409).json({ code: 'OAuthAccountNotLinked', message: 'This email is linked to a different account' });
+            return res.status(409).json({ success: false, code: 'OAuthAccountNotLinked', error: 'This email is linked to a different account' });
         }
 
         res.json({

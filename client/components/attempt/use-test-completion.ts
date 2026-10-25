@@ -42,7 +42,7 @@ export function useTestCompletion() {
       const data = await endTest(testId, forced, autoReason);
 
       if (!data.success) {
-        toast.error(data.error || data.message || options.errorMessage || "Failed to submit test");
+        toast.error(data.error || options.errorMessage || "Failed to submit test");
         return { success: false as const, data };
       }
 

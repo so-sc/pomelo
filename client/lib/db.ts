@@ -1,7 +1,4 @@
-import { auth } from "@/auth";
-
-import { getBaseUrl } from "@/lib/env";
-const BASE_URL = getBaseUrl();
+import { fetchBackend } from "@/lib/fetch";
 
 type Collection = "questions" | "contests" | "submissions";
 
@@ -19,31 +16,10 @@ interface PageOptions extends QueryOptions {
 }
 
 async function post(path: string, body: Record<string, unknown>) {
-    const session = await auth();
-    const token = session?.backendToken;
-
-    const res = await fetch(`${BASE_URL}${path}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-        cache: "no-store",
-    });
-
-    const contentType = res.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error(`Non-JSON response from ${BASE_URL}${path}:`, text.slice(0, 500)); // Log first 500 chars
-        throw new Error(`Received non-JSON response: ${text.slice(0, 100)}...`);
-    }
-
-    const json = await res.json();
+    const json = await fetchBackend(path, { method: "POST", body: JSON.stringify(body) });
     if (!json.success) {
         throw new Error(json.error || "DB Fetch Error");
     }
-
     return json;
 }
 

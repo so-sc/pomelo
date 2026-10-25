@@ -2,18 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const { _statusQuery: statusQuery } = require('../controllers/adminCon');
+const { contestStatus: computeStatus } = require('../utils/contestTime');
 
 const NOW = new Date('2026-06-15T12:00:00.000Z');
 
-// Mirrors the summary mapping in getAdminContests: manual end wins, otherwise
-// the time window decides.
-const computeStatus = (contest, now) => {
-    const stored = (contest.status || '').toLowerCase();
-    if (stored === 'completed' || stored === 'ended') return 'completed';
-    if (now > contest.endTime) return 'completed';
-    if (now >= contest.startTime && now <= contest.endTime) return 'ongoing';
-    return 'waiting';
-};
 
 // Minimal evaluator for the subset of Mongo operators the predicates use.
 const matches = (query, doc) =>

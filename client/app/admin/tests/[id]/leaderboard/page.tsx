@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LeaderboardTable } from "@/components/admin/test/leaderboard-table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getBaseUrl } from "@/lib/env";
+import { fetchBackend } from "@/lib/fetch";
 import { Pagination } from "@/components/admin/pagination";
 
 export const dynamic = "force-dynamic";
@@ -48,22 +48,11 @@ async function getLeaderboardData(id: string, page: number): Promise<Leaderboard
   if (!token) return { success: false, status: 401 };
 
   try {
-    const res = await fetch(
-      `${getBaseUrl()}/api/test/${id}/leaderboard?page=${page}&limit=${LEADERBOARD_PAGE_SIZE}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      }
-    );
-
-    if (res.status === 403) return { success: false as const, status: 403 };
-    if (res.status === 404) return { success: false as const, status: 404 };
-
-    const json = await res.json();
+    const json = await fetchBackend(`/api/test/${id}/leaderboard?page=${page}&limit=${LEADERBOARD_PAGE_SIZE}`);
     if (json.success) {
-      return { success: true as const, status: res.status, data: json.data as LeaderboardData };
+      return { success: true as const, status: json.httpStatus, data: json.data as LeaderboardData };
     }
-    return { success: false as const, status: res.status };
+    return { success: false as const, status: json.httpStatus };
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
     return { success: false as const, status: 500 };

@@ -70,7 +70,7 @@ export default function ContestLanding() {
         if (result.isCompleted) {
           setAlreadyCompleted(true);
         } else {
-          toast.error(result.message || "Failed to fetch data");
+          toast.error(result.error || "Failed to fetch data");
         }
       }
     } catch {
@@ -160,7 +160,7 @@ export default function ContestLanding() {
         if (result.isCompleted) {
           setAlreadyCompleted(true);
         } else {
-          toast.error(result.error || result.message || "Failed to start session");
+          toast.error(result.error || "Failed to start session");
         }
         if (document.fullscreenElement && document.exitFullscreen) {
           try {

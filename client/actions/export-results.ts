@@ -10,7 +10,7 @@ export async function exportContestScores(contestId: string) {
     const result = await fetchBackend(`/api/admin/tests/${contestId}/export/scores`);
 
     if (result?.success === false) {
-      return { success: false as const, message: result.error || result.message || "Failed to export scores" };
+      return { success: false as const, message: result.error || "Failed to export scores" };
     }
 
     return { success: true as const, csv: result.message as string };
