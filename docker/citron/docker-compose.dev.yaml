@@ -13,6 +13,8 @@ services:
     cap_add: [SYS_ADMIN]
     security_opt:
       - apparmor=unconfined
+      # Required: nsjail mounts a fresh /proc per run, which Docker's masked /proc paths block.
+      # It widens the host attack surface, so keep Citron off networks it doesn't need.
       - systempaths=unconfined
     cgroup: private
     tmpfs:

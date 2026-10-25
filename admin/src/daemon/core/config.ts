@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
 import YAML from "yaml";
@@ -91,7 +91,7 @@ export function updateConfig(paths: Paths, payload: any) {
   }
 
   if (finalAppEnv) {
-    writeFileSync(paths.envFile, finalAppEnv);
+    writeSecretFile(paths.envFile, finalAppEnv);
   }
   if (typeof payload.caddyfile === "string") {
     // If the UI sends a caddyfile explicitly, it will overwrite the generated one here
@@ -165,9 +165,17 @@ export function isValidPort(value: string | number) {
   return Number.isInteger(num) && num > 0 && num < 65536;
 }
 
+// app.env holds AUTH_SECRET and OAuth secrets: owner-only, also fixing older 0644 installs.
+function writeSecretFile(path: string, data: string) {
+  writeFileSync(path, data, { mode: 0o600 });
+  chmodSync(path, 0o600);
+}
+
 export function ensureConfigDefaults(paths: Paths, releaseDir: string) {
   if (!existsSync(paths.envFile)) {
-    writeFileSync(paths.envFile, defaultEnv());
+    writeSecretFile(paths.envFile, defaultEnv());
+  } else {
+    chmodSync(paths.envFile, 0o600);
   }
 
   if (!existsSync(paths.configFile)) {

@@ -559,6 +559,7 @@ if [[ ! -s "$APP_ROOT/config/app.env" ]]; then
 
   AUTH_SECRET=$(gen_secret)
 
+  install -m 600 /dev/null "$APP_ROOT/config/app.env"
   cat > "$APP_ROOT/config/app.env" <<EOF
 # --- SECRETS & URIS ---
 AUTH_SECRET=${AUTH_SECRET}
@@ -570,6 +571,8 @@ EOF
 else
   log_info "Existing config preserved at ${DIM}$APP_ROOT/config/app.env${NC}"
 fi
+# Holds AUTH_SECRET: owner-only (also tightens installs created before this was set).
+chmod 600 "$APP_ROOT/config/app.env"
 
 if [[ ! -s "$APP_ROOT/config/config.yaml" ]]; then
   cat > "$APP_ROOT/config/config.yaml" <<YAML_EOF
