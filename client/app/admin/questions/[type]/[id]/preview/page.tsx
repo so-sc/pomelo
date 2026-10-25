@@ -45,7 +45,7 @@ export default async function QuestionPreviewPage({
       <div className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <Link href={backUrl}>
-            <Button variant="outline" size="icon" aria-label="Back to edit">
+            <Button variant="outline" size="icon" aria-label="Go back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
