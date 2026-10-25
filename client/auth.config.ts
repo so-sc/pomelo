@@ -103,14 +103,24 @@ export const authConfig = {
             const isAdminPage = nextUrl.pathname.startsWith('/admin');
             const isUserPage = ['/attempt', '/join', '/test'].some(path => nextUrl.pathname.startsWith(path));
 
+            // Auth.js's own redirect puts an absolute URL built from AUTH_URL in callbackUrl,
+            // whose host can differ from the browser's; a path always round-trips.
+            const toLogin = () => {
+                const login = nextUrl.clone();
+                login.pathname = '/auth/login';
+                login.search = '';
+                login.searchParams.set('callbackUrl', `${nextUrl.pathname}${nextUrl.search}`);
+                return Response.redirect(login);
+            };
+
             if (isAdminPage) {
                 if (isLoggedIn && userRole === 'admin') return true;
-                return false; // Redirect to login
+                return toLogin();
             }
 
             if (isUserPage) {
                 if (isLoggedIn) return true;
-                return false; // Redirect to login
+                return toLogin();
             }
 
             return true;

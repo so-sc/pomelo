@@ -14,6 +14,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { authenticate } from "@/actions/auth";
 import type { AuthMethods } from "@/lib/auth/providers";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { getSafeCallbackUrl, withCallbackUrl } from "@/lib/return-url";
 
 const SSO_ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: "This email is already linked to a different account.",
@@ -30,6 +31,12 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  // The page that sent us here (e.g. a test link); same-host only. No host during SSR,
+  // which just means absolute URLs fall back to "/" until the client renders.
+  const callbackUrl = getSafeCallbackUrl(
+    searchParams.get("callbackUrl"),
+    typeof window === "undefined" ? undefined : window.location.host,
+  );
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -76,8 +83,8 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
       const result = await authenticate(undefined, formData);
 
       if (result === "success") {
-        // Redirect handled by middleware/server action usually, but if we get here:
-        window.location.href = "/";
+        // Full load so the new session cookie is picked up everywhere.
+        window.location.href = callbackUrl;
       } else if (result) {
         toast.error(result);
       }
@@ -184,7 +191,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
                     type="button"
                     variant="link"
                     className="p-0 text-sm text-primary hover:no-underline cursor-pointer"
-                    onClick={() => router.replace("/auth/register")}
+                    onClick={() => router.replace(withCallbackUrl("/auth/register", callbackUrl))}
                   >
                     Sign Up
                   </Button>
@@ -196,6 +203,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
               providers={methods.oauth}
               divider={methods.credentials}
               onError={setSsoError}
+              callbackUrl={callbackUrl}
             />
 
             <p className="text-xs text-muted-foreground text-center">

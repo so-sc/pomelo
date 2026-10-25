@@ -60,3 +60,23 @@ export function getQuestionPreviewBackUrl(
     `/admin/questions/${type}/${id}/edit`,
   );
 }
+
+// Where to land after signing in. Auth.js puts the protected page's absolute URL in
+// ?callbackUrl=, so a same-host URL is reduced to its path; anything else (another host,
+// a protocol-relative trick, the auth pages themselves) falls back to home.
+export function getSafeCallbackUrl(candidate: string | null | undefined, host?: string) {
+  let value: string | undefined = candidate ?? undefined;
+  if (value && host) {
+    try {
+      const url = new URL(value);
+      if (url.host === host) value = `${url.pathname}${url.search}${url.hash}`;
+    } catch { /* already relative */ }
+  }
+  const safe = getSafeReturnUrl(value, "/");
+  return safe.startsWith("/auth/") ? "/" : safe;
+}
+
+// Keeps the post-login destination when moving between the login and register pages.
+export function withCallbackUrl(pathname: string, callbackUrl: string) {
+  return callbackUrl === "/" ? pathname : `${pathname}?${new URLSearchParams({ callbackUrl })}`;
+}

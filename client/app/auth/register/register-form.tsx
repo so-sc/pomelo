@@ -14,6 +14,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { register } from "@/actions/auth";
 import type { AuthMethods } from "@/lib/auth/providers";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { getSafeCallbackUrl, withCallbackUrl } from "@/lib/return-url";
 
 export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] }) {
   const [name, setName] = useState("");
@@ -27,6 +28,11 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Carried over from the login page, so registering still returns to the test link.
+  const callbackUrl = getSafeCallbackUrl(
+    searchParams.get("callbackUrl"),
+    typeof window === "undefined" ? undefined : window.location.host,
+  );
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -91,7 +97,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
 
       if (result === "success") {
         toast.success("Account created! Redirecting to login...");
-        router.push("/auth/login");
+        router.push(withCallbackUrl("/auth/login", callbackUrl));
       } else {
         toast.error(result || "Registration failed");
       }
@@ -144,7 +150,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
                   type="button"
                   variant="link"
                   className="p-0 text-sm text-primary hover:no-underline cursor-pointer"
-                  onClick={() => router.replace("/auth/login")}
+                  onClick={() => router.replace(withCallbackUrl("/auth/login", callbackUrl))}
                 >
                   Login
                 </Button>
@@ -231,7 +237,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
                   {loading ? "Loading..." : "Continue"}
                 </Button>
 
-                <OAuthButtons providers={oauth} divider onError={setSsoError} />
+                <OAuthButtons providers={oauth} divider onError={setSsoError} callbackUrl={callbackUrl} />
               </div>
             </form>
 

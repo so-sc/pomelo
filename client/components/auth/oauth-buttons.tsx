@@ -17,9 +17,11 @@ type Props = {
   /** Draw an "OR" divider above the buttons (when a password form is shown too). */
   divider?: boolean;
   onError: (message: string) => void;
+  /** Where to land after signing in; already sanitised by the caller. */
+  callbackUrl?: string;
 };
 
-export function OAuthButtons({ providers, divider, onError }: Props) {
+export function OAuthButtons({ providers, divider, onError, callbackUrl = "/" }: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   if (!providers.length) return null;
@@ -31,7 +33,7 @@ export function OAuthButtons({ providers, divider, onError }: Props) {
     onError("");
 
     try {
-      await signIn(id, { callbackUrl: "/" });
+      await signIn(id, { callbackUrl });
     } catch {
       onError(`Failed to initiate ${label} sign-in. Please try again.`);
       setLoadingId(null);

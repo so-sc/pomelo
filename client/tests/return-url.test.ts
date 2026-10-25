@@ -4,6 +4,8 @@ import {
   buildQuestionPreviewHref,
   buildReturnUrl,
   getQuestionPreviewBackUrl,
+  getSafeCallbackUrl,
+  withCallbackUrl,
 } from "../lib/return-url";
 
 test("buildReturnUrl preserves query parameters, including repeated values", () => {
@@ -58,4 +60,22 @@ test("question preview falls back to editor if return URL is missing or invalid"
   ]) {
     assert.equal(getQuestionPreviewBackUrl("coding", "question-1", candidate), fallback);
   }
+});
+
+test("callbackUrl keeps same-host pages, reduced to their path", () => {
+  assert.equal(getSafeCallbackUrl("https://pomelo.test/test/abc?x=1", "pomelo.test"), "/test/abc?x=1");
+  assert.equal(getSafeCallbackUrl("/attempt/test/abc/question/q1", "pomelo.test"), "/attempt/test/abc/question/q1");
+});
+
+test("callbackUrl rejects other hosts, protocol-relative URLs and auth pages", () => {
+  assert.equal(getSafeCallbackUrl("https://attacker.com/phish", "pomelo.test"), "/");
+  assert.equal(getSafeCallbackUrl("//attacker.com", "pomelo.test"), "/");
+  assert.equal(getSafeCallbackUrl("javascript:alert(1)", "pomelo.test"), "/");
+  assert.equal(getSafeCallbackUrl("/auth/login", "pomelo.test"), "/");
+  assert.equal(getSafeCallbackUrl(null, "pomelo.test"), "/");
+});
+
+test("withCallbackUrl only adds the parameter when there is somewhere to return to", () => {
+  assert.equal(withCallbackUrl("/auth/register", "/"), "/auth/register");
+  assert.equal(withCallbackUrl("/auth/register", "/test/abc"), "/auth/register?callbackUrl=%2Ftest%2Fabc");
 });
