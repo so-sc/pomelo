@@ -11,6 +11,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "release": "pnpm version",
     "check-tag": "node scripts/check-tag-version.mjs"
