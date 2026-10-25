@@ -96,6 +96,7 @@ export default function QuestionAddCard({ availableQuestions = [], previewReturn
                   selected={problemIds.includes(problem._id || String(problem.id))}
                   hideActions={true}
                   previewReturnUrl={previewReturnUrl}
+                  previewInNewTab
                 />
               ))}
             </div>

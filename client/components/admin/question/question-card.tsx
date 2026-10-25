@@ -19,6 +19,8 @@ interface Props {
   className?: string;
   hideActions?: boolean;
   previewReturnUrl?: string;
+  /** Open the preview in a new tab, e.g. from a form whose unsaved state would be lost. */
+  previewInNewTab?: boolean;
 }
 
 export default function QuestionCard({
@@ -28,6 +30,7 @@ export default function QuestionCard({
   hideActions = false,
   selected = false,
   previewReturnUrl,
+  previewInNewTab = false,
 }: Props) {
   const getTypeIcon = (type: string | undefined) => {
     return type === "coding" || type === "Coding" ? (
@@ -140,6 +143,7 @@ export default function QuestionCard({
             <Link
               href={previewHref}
               onClick={(e) => e.stopPropagation()}
+              {...(previewInNewTab && { target: "_blank", rel: "noopener noreferrer" })}
               title="Preview in the candidate UI"
             >
               <Eye className="h-4 w-4" />
