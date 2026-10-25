@@ -43,6 +43,7 @@
     "input-otp": "^1.4.2",
     "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
+    "monaco-editor": "0.55.1",
     "motion": "^12.40.0",
     "next": "16.2.6",
     "next-auth": "5.0.0-beta.30",

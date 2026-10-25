@@ -1,5 +1,5 @@
 import React from "react";
-import Editor from "@monaco-editor/react";
+import dynamic from "next/dynamic";
 import {
   Select,
   SelectContent,
@@ -14,6 +14,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CodingProblem } from "@/types/problem";
 
 type Language = keyof CodingProblem["boilerplateCode"];
+
+const Editor = dynamic(() => import("./monaco-editor"), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full bg-muted" />,
+});
 
 export default function CodeEditorPanel({
   problem,
