@@ -41,13 +41,6 @@ const contestSchema = new mongoose.Schema({
     type: String,
     enum: ['upcoming', 'ongoing', 'completed', 'ended'],
   },
-
-  violations: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    timestamp: { type: Date, default: Date.now },
-    details: String,
-  }],
-
 }, { timestamps: true });
 
 // Every write drops the cached copy here rather than at each call site, so no

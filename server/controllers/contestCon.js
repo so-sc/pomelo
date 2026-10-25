@@ -1,5 +1,6 @@
 const Contest = require('../models/Contest');
 const User = require('../models/User');
+const Submission = require('../models/Submissions');
 const { toProblemView } = require('../utils/toProblemView');
 const { isManuallyEnded, attemptDeadline, lastDeadline } = require('../utils/contestTime');
 
@@ -42,67 +43,6 @@ const validateJoinId = async (req, res, next) => {
     }
 };
 
-// @desc    Manage violations in a contest
-// @route   POST /api/contests/:id/violation
-// @access  Private (requires authentication)
-const manageViolations = async (req, res, next) => {
-    try {
-        const { userId, details } = req.body;
-        const contest = await Contest.findById(req.params.id);
-
-        if (!contest) {
-            return res.status(404).json({ success: false, error: 'Contest not found' });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-
-        // Add violation logic here
-        // For example, adding to a violations array in the contest model
-        const violation = {
-            user: userId,
-            timestamp: new Date(),
-            details: details || ' details provided.'
-        };
-
-        // Assuming contest schema has a 'violations' array
-        if (!contest.violations) {
-            contest.violations = [];
-        }
-        contest.violations.push(violation);
-
-        await contest.save();
-
-        res.json({ message: 'Violation recorded successfully', violation });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// @desc    Check if test ID is valid
-const checkTestId = async (req, res) => {
-    try {
-        const { contestId } = req.body;
-        const contest = await Contest.findById(contestId);
-
-        if (!contest) {
-            return res.json({ isValid: false });
-        }
-
-        return res.json({
-            isValid: true,
-            contestInfo: {
-                title: contest.title,
-                description: contest.description
-            }
-        });
-    } catch (error) {
-        return res.json({ isValid: false });
-    }
-};
-
 // @desc    Get contest landing details
 const getContestLanding = async (req, res, next) => {
     try {
@@ -140,7 +80,6 @@ const getContestData = async (req, res, next) => {
         const questions = contest.questions || [];
 
         // Fetch User Submission to get saved state
-        const Submission = require('../models/Submissions');
         // Middleware likely attached submission
         const submission = req.submission || await Submission.findOne({ contest: contest._id, user: req.user.id });
 
@@ -188,25 +127,20 @@ const getContestData = async (req, res, next) => {
 // @desc    Start test (User Attempt)
 const startTest = async (req, res, next) => {
     try {
-        console.log("StartTest: Initiated");
         const contest = req.contest;
         const userId = req.user.id;
-        console.log("StartTest: User ID:", userId);
 
         const contestId = contest._id;
-        console.log("StartTest: Contest ID:", contestId);
 
         const now = new Date();
 
         const user = await User.findById(userId);
         if (user && !user.registeredContests.includes(contestId)) {
-            console.log("StartTest: Registering user for contest");
             user.registeredContests.push(contestId);
             await user.save();
         }
 
         // Initialize Submission if not exists
-        const Submission = require('../models/Submissions');
         // Middleware might have attached submission
         let submission = req.submission;
 
@@ -215,13 +149,10 @@ const startTest = async (req, res, next) => {
         }
 
         if (!submission) {
-            console.log("StartTest: Creating new submission");
             submission = new Submission({ contest: contestId, user: userId, status: 'Ongoing' });
             await submission.save();
-            console.log("StartTest: Submission created:", submission._id);
         } else {
             // Middleware already checked if it was Completed and threw 403 if checkAttemptStatus was set
-            console.log("StartTest: Resuming existing submission:", submission._id);
         }
 
         const deadline = attemptDeadline(contest, submission);
@@ -264,7 +195,6 @@ const getLeaderboard = async (req, res, next) => {
             });
         }
 
-        const Submission = require('../models/Submissions');
 
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
@@ -330,22 +260,17 @@ const getLeaderboard = async (req, res, next) => {
 // @desc    End Test (Mark as Completed)
 const endTest = async (req, res, next) => {
     try {
-        console.log("EndTest: Initiated");
         const contestId = req.params.id || req.body.contestId || (req.contest && req.contest._id);
         const userId = req.user.id;
         const { forcedSubmission = false, autoSubmitReason } = req.body || {};
-        console.log("EndTest: Contest ID:", contestId, "User ID:", userId);
 
         if (!contestId) {
-            console.log("EndTest: Missing Contest ID");
             return res.status(400).json({ success: false, error: 'Contest ID is required' });
         }
 
-        const Submission = require('../models/Submissions');
         const submission = await Submission.findOne({ contest: contestId, user: userId });
 
         if (!submission) {
-            console.log("EndTest: Submission not found");
             return res.status(404).json({ success: false, error: 'Submission session not found. Did you start the test?' });
         }
 
@@ -353,7 +278,6 @@ const endTest = async (req, res, next) => {
         // move submittedAt forward, and one with an empty body would clear the
         // forcedSubmission flag set by an integrity auto-submit.
         if (submission.status === 'Completed') {
-            console.log("EndTest: Already completed, nothing to do");
             return res.json({
                 success: true,
                 message: 'Test already submitted',
@@ -361,7 +285,6 @@ const endTest = async (req, res, next) => {
             });
         }
 
-        console.log("EndTest: Marking submission as completed");
         submission.status = 'Completed';
         submission.submittedAt = new Date();
         submission.forcedSubmission = Boolean(forcedSubmission || autoSubmitReason);
@@ -380,8 +303,6 @@ const endTest = async (req, res, next) => {
 
 module.exports = {
     validateJoinId,
-    manageViolations,
-    checkTestId,
     getContestLanding,
     getContestData,
     startTest,

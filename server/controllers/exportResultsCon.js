@@ -1,6 +1,5 @@
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
-const { connectDB } = require('../helpers/dbCon');
 const { buildScoreCSV, buildSubmissionsDump, generateResultsFilename } = require('../utils/resultsIO/export');
 
 // fields: optional projection, so the score sheet doesn't load every candidate's code
@@ -33,7 +32,6 @@ async function loadContestAndSubmissions(id, fields) {
 // @desc Export a contest's candidate scores as a CSV score sheet
 const exportScores = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const { contest, submissions } = await loadContestAndSubmissions(id, 'user totalScore submissions.question submissions.score');
@@ -63,7 +61,6 @@ const exportScores = async (req, res, next) => {
 // @desc Export a contest's full submission data as a JSON dump (compact or verbose)
 const exportSubmissions = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
         const verbose = req.query.verbose === 'true';
 

@@ -1,7 +1,6 @@
 const Question = require('../models/Question');
 const Contest = require('../models/Contest');
 const Submission = require('../models/Submissions');
-const { connectDB } = require('../helpers/dbCon');
 const { getJudge, validateProblemConfig } = require("@pomelo/code-gen");
 const {
   exportSingleQuestion,
@@ -26,7 +25,6 @@ const asArray = (value) => Array.isArray(value) ? value : [];
 // @desc Create a new problem
 const createProblem = async (req, res, next) => {
     try {
-        await connectDB();
         const {
             title, description, difficulty, marks,
             questionType, options, correctAnswer,
@@ -130,7 +128,6 @@ const createProblem = async (req, res, next) => {
 // @desc Update an existing problem
 const updateProblem = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
         const {
             title, description, difficulty, marks,
@@ -240,7 +237,6 @@ const updateProblem = async (req, res, next) => {
 // @desc Get problem details
 const getProblemDetail = async (req, res, next) => {
     try {
-        await connectDB();
         const question = await Question.findById(req.params.id);
         if (!question) return res.status(404).json({ success: false, error: 'Question not found' });
 
@@ -253,7 +249,6 @@ const getProblemDetail = async (req, res, next) => {
 // @desc Delete a problem
 const deleteQuestion = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         // Tests hold their own copies, so deleting from the bank can't touch them.
@@ -286,7 +281,6 @@ const statusQuery = (status, now) => ({
 // @desc Get all contests for admin dashboard
 const getAdminContests = async (req, res, next) => {
     try {
-        await connectDB();
         const now = new Date();
 
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -379,7 +373,6 @@ const getAdminContests = async (req, res, next) => {
 // @desc Create a new contest
 const createContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { title, description, duration, durationMinutes, problemIds, rules, author } = req.body;
 
         if (!isNonEmptyString(title)) {
@@ -448,7 +441,6 @@ const createContest = async (req, res, next) => {
 // @desc Clone an existing contest
 const cloneContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const originalContest = await Contest.findById(id).lean();
@@ -493,7 +485,6 @@ const cloneContest = async (req, res, next) => {
 // @desc Update an existing contest
 const updateContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
         const { title, description, duration, durationMinutes, problemIds, rules, visibility } = req.body;
 
@@ -577,7 +568,6 @@ const updateContest = async (req, res, next) => {
 // @desc End a contest: blocks new joins/starts, lets in-progress candidates finish
 const endContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
@@ -592,7 +582,6 @@ const endContest = async (req, res, next) => {
 // @desc Force-end a contest: also immediately submits every in-progress candidate
 const forceEndContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const contest = await Contest.findByIdAndUpdate(id, { status: 'ended' }, { returnDocument: 'after' });
@@ -620,7 +609,6 @@ const forceEndContest = async (req, res, next) => {
 // @desc Get contest results
 const getAdminContestResults = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const pageRaw = typeof req.query.page === 'string' ? req.query.page : '';
@@ -776,7 +764,6 @@ const getAdminContestResults = async (req, res, next) => {
 // @desc Delete a contest
 const deleteContest = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
 
         const contest = await Contest.findById(id).select('status startTime endTime durationMinutes').lean();
@@ -800,7 +787,6 @@ const deleteContest = async (req, res, next) => {
 // @desc Get admin dashboard statistics
 const getAdminStats = async (req, res, next) => {
     try {
-        await connectDB();
         const now = new Date();
 
         const [
@@ -872,7 +858,6 @@ const getAdminStats = async (req, res, next) => {
 // @desc Export a single question or multiple questions as JSON
 const exportQuestion = async (req, res, next) => {
     try {
-        await connectDB();
         const { id } = req.params;
         const { bulk } = req.query; // ?bulk=true to export multiple
 
@@ -922,7 +907,6 @@ const exportQuestion = async (req, res, next) => {
 // @desc Import questions from JSON
 const importQuestions = async (req, res, next) => {
     try {
-        await connectDB();
 
         if (!req.file) {
             return res.status(400).json({ success: false, error: 'No file uploaded' });

@@ -1,4 +1,3 @@
-const { connectDB } = require('../helpers/dbCon');
 const { escapeRegex } = require('../utils/escapeRegex');
 const Question = require('../models/Question');
 const Contest = require('../models/Contest');
@@ -46,7 +45,6 @@ exports._hasUnsafeKeys = hasUnsafeKeys;
 
 exports.getData = async (req, res, next) => {
     try {
-        await connectDB();
 
         const { collection, filter = {}, projection = null, limit = 0, sort = {}, populate = null, skip = 0, count = false, search = null } = req.body;
 
@@ -110,7 +108,6 @@ exports.getData = async (req, res, next) => {
 
 exports.getOne = async (req, res, next) => {
     try {
-        await connectDB();
 
         const { collection, filter = {}, projection = null, populate = null } = req.body;
 

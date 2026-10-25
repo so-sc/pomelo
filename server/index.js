@@ -16,10 +16,6 @@ const authRoutes = require("./routes/authRoutes");
 
 const port = process.env.PORT || 8080;
 
-// Initialize Cron Jobs (Removed: using lazy/computed status)
-// const initCron = require("./services/cron");
-// initCron();
-
 app.use(
   cors({
     origin: (origin, callback) => callback(null, true),

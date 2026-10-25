@@ -528,5 +528,4 @@ const saveMCQ = async (req, res, next) => {
     }
 };
 
-// executeTestCases is exported to exercise the execution path without Express/Mongo/auth.
-module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, scoreMcq, resolveExecutionRequest, runnableTestCases, executeTestCases, saveSubmissionEntry, streamExecution, scoreResults, projectResults, DISCLOSURE, MAX_CODE_LENGTH };
+module.exports = { saveMCQ, submitCode, runCode, findContestQuestion, scoreMcq, resolveExecutionRequest, runnableTestCases, streamExecution, scoreResults, DISCLOSURE };
