@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import TestForm from "@/components/admin/test/test-form";
 import { db } from "@/lib/db";
 import { Problem } from "@/types/problem";
+import { buildReturnUrl, type SearchParams } from "@/lib/return-url";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,13 @@ type QuestionReference =
 
 export default async function AdminTestEditPage({
   params,
+  searchParams,
 }: {
   params: Promise<IdParams>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { id } = await params;
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const previewReturnUrl = buildReturnUrl(`/admin/tests/${id}/edit`, query);
 
   let availableQuestions: Problem[] = [];
   try {
@@ -51,7 +55,7 @@ export default async function AdminTestEditPage({
     return (
       <div className="flex-1 h-full bg-background text-foreground overflow-x-hidden">
         <div className="h-full w-full">
-          <TestForm testData={null} availableQuestions={availableQuestions} />
+          <TestForm testData={null} availableQuestions={availableQuestions} previewReturnUrl={previewReturnUrl} />
         </div>
       </div>
     );
@@ -103,7 +107,7 @@ export default async function AdminTestEditPage({
   return (
     <div className="flex-1 h-full bg-background text-foreground overflow-x-hidden">
       <div className="h-full w-full">
-        <TestForm testData={testData} availableQuestions={availableQuestions} />
+        <TestForm testData={testData} availableQuestions={availableQuestions} previewReturnUrl={previewReturnUrl} />
       </div>
     </div>
   );

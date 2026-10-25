@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { deleteQuestion } from "@/actions/delete-question";
 import { exportQuestion } from "@/actions/export-question";
+import { buildQuestionPreviewHref } from "@/lib/return-url";
 
 interface Props {
   problem: BaseProblem;
@@ -17,6 +18,7 @@ interface Props {
   onClickQuestion?: (id: string | number) => void;
   className?: string;
   hideActions?: boolean;
+  previewReturnUrl?: string;
 }
 
 export default function QuestionCard({
@@ -25,6 +27,7 @@ export default function QuestionCard({
   className,
   hideActions = false,
   selected = false,
+  previewReturnUrl,
 }: Props) {
   const getTypeIcon = (type: string | undefined) => {
     return type === "coding" || type === "Coding" ? (
@@ -55,6 +58,12 @@ export default function QuestionCard({
   const handleClick = () => {
     if (onClickQuestion) onClickQuestion(problem._id || problem.id);
   };
+
+  const previewHref = buildQuestionPreviewHref(
+    (problem.type || "coding").toLowerCase(),
+    problem._id || problem.id,
+    previewReturnUrl,
+  );
 
   const handleExport = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -114,54 +123,60 @@ export default function QuestionCard({
         </div>
       </div>
 
-      {!hideActions && (
+      {(!hideActions || previewReturnUrl) && (
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={handleExport}
-            title="Export as JSON"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+          {!hideActions && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={handleExport}
+              title="Export as JSON"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
             <Link
-              href={`/admin/questions/${(problem.type || "coding").toLowerCase()}/${problem._id || problem.id}/preview`}
+              href={previewHref}
               onClick={(e) => e.stopPropagation()}
               title="Preview in the candidate UI"
             >
               <Eye className="h-4 w-4" />
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
-            <Link
-              href={`/admin/questions/${(problem.type || "coding").toLowerCase()}/${problem._id || problem.id}/edit`}
-              onClick={(e) => e.stopPropagation()}
-              title="Edit"
-            >
-              <Pencil className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-            onClick={async (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (confirm("Are you sure you want to delete this question?")) {
-                const res = await deleteQuestion(String(problem._id || problem.id));
-                if (res.success) {
-                  toast.success("Question deleted");
-                } else {
-                  toast.error("Delete failed", { description: res.error || "Failed to delete question" });
-                }
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!hideActions && (
+            <>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
+                <Link
+                  href={`/admin/questions/${(problem.type || "coding").toLowerCase()}/${problem._id || problem.id}/edit`}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (confirm("Are you sure you want to delete this question?")) {
+                    const res = await deleteQuestion(String(problem._id || problem.id));
+                    if (res.success) {
+                      toast.success("Question deleted");
+                    } else {
+                      toast.error("Delete failed", { description: res.error || "Failed to delete question" });
+                    }
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>

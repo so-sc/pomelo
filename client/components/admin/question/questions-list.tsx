@@ -18,9 +18,10 @@ interface Props {
   search: string;
   type: string;
   difficulty: string;
+  returnUrl: string;
 }
 
-export function QuestionsList({ questions, total, page, search, type, difficulty }: Props) {
+export function QuestionsList({ questions, total, page, search, type, difficulty, returnUrl }: Props) {
   const { set, pending } = useFilterParams();
   const [term, setTerm] = useState(search);
 
@@ -66,6 +67,7 @@ export function QuestionsList({ questions, total, page, search, type, difficulty
                 <QuestionCard
                   key={problem._id || problem.id}
                   problem={{ ...problem, id: problem._id || problem.id }}
+                  previewReturnUrl={returnUrl}
                 />
               ))}
             </div>

@@ -3,6 +3,7 @@ import React from "react";
 import { db } from "@/lib/db";
 import { QuestionsList } from "@/components/admin/question/questions-list";
 import { PAGE_SIZE } from "@/components/admin/pagination";
+import { buildReturnUrl, type SearchParams } from "@/lib/return-url";
 
 import { BaseProblem } from "@/types/problem/problem.types";
 
@@ -22,16 +23,18 @@ const DIFFICULTIES: Record<string, string> = {
 };
 
 interface Props {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<SearchParams>;
 }
 
 export default async function AdminQuestionsPage({ searchParams }: Props) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
-  const search = params.q || "";
-  const type = params.type && params.type !== "all" ? params.type : "";
+  const search = typeof params.q === "string" ? params.q : "";
+  const type = typeof params.type === "string" && params.type !== "all" ? params.type : "";
   const difficulty =
-    params.difficulty && params.difficulty !== "all" ? params.difficulty : "";
+    typeof params.difficulty === "string" && params.difficulty !== "all"
+      ? params.difficulty
+      : "";
 
   const filter: Record<string, unknown> = {};
   if (type) filter.type = type;
@@ -70,6 +73,7 @@ export default async function AdminQuestionsPage({ searchParams }: Props) {
       search={search}
       type={type}
       difficulty={difficulty}
+      returnUrl={buildReturnUrl("/admin/questions", params)}
     />
   );
 }

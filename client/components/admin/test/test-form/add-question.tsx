@@ -16,9 +16,10 @@ import { BaseProblem } from "@/types/problem/problem.types";
 
 interface QuestionAddCardProps {
   availableQuestions: BaseProblem[];
+  previewReturnUrl: string;
 }
 
-export default function QuestionAddCard({ availableQuestions = [] }: QuestionAddCardProps) {
+export default function QuestionAddCard({ availableQuestions = [], previewReturnUrl }: QuestionAddCardProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("");
@@ -94,6 +95,7 @@ export default function QuestionAddCard({ availableQuestions = [] }: QuestionAdd
                   onClickQuestion={() => toggleProblemId(problem._id || String(problem.id))}
                   selected={problemIds.includes(problem._id || String(problem.id))}
                   hideActions={true}
+                  previewReturnUrl={previewReturnUrl}
                 />
               ))}
             </div>

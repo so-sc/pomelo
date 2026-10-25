@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchBackend } from "@/lib/fetch";
 import { CodingProblem, MCQProblem } from "@/types/problem";
+import { getQuestionPreviewBackUrl } from "@/lib/return-url";
 
 const VALID_TYPES = ["coding", "mcq"] as const;
 
@@ -20,11 +21,18 @@ export const metadata = {
 
 export default async function QuestionPreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ type: string; id: string }>;
+  searchParams: Promise<{ returnUrl?: string | string[] }>;
 }) {
-  const { type, id } = await params;
+  const [{ type, id }, query] = await Promise.all([params, searchParams]);
   if (!VALID_TYPES.includes(type as "coding" | "mcq")) return notFound();
+  const backUrl = getQuestionPreviewBackUrl(
+    type,
+    id,
+    query.returnUrl,
+  );
 
   const result = await fetchBackend(`/api/admin/questions/${id}/preview`);
   if (!result?.success || !result.problem) return notFound();
@@ -36,7 +44,7 @@ export default async function QuestionPreviewPage({
     <div className="fixed inset-x-0 bottom-0 top-[var(--banner-h,0px)] z-50 flex flex-col bg-background">
       <div className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href={`/admin/questions/${type}/${id}/edit`}>
+          <Link href={backUrl}>
             <Button variant="outline" size="icon" aria-label="Back to edit">
               <ArrowLeft className="h-4 w-4" />
             </Button>

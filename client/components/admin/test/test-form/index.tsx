@@ -39,7 +39,7 @@ function getDefaultSchedule() {
   };
 }
 
-export default function TestForm({ testData, availableQuestions = [] }: { testData: Test | null; availableQuestions?: Problem[] }) {
+export default function TestForm({ testData, availableQuestions = [], previewReturnUrl }: { testData: Test | null; availableQuestions?: Problem[]; previewReturnUrl: string }) {
   const router = useRouter();
   const defaultSchedule = getDefaultSchedule();
   const form = useForm<TestSchema>({
@@ -118,7 +118,7 @@ export default function TestForm({ testData, availableQuestions = [] }: { testDa
           <form id="test-form" onSubmit={handleSubmit} className="space-y-6">
             <TestBasicCard />
             <RulesCard />
-            <QuestionAddCard availableQuestions={availableQuestions} />
+            <QuestionAddCard availableQuestions={availableQuestions} previewReturnUrl={previewReturnUrl} />
             <TestQuestions questions={questions} availableQuestions={availableQuestions} />
           </form>
         </Form>
