@@ -8,7 +8,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string; action: string }> }
 ) {
   const { id, action } = await params;
-  if (!ALLOWED_ACTIONS.has(action)) {
+  // id goes into the backend URL; a decoded "../" must not reach other backend routes.
+  if (!ALLOWED_ACTIONS.has(action) || !/^[a-f0-9]{24}$/i.test(id)) {
     return new Response("Not found", { status: 404 });
   }
 

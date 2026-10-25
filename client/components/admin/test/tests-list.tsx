@@ -60,7 +60,7 @@ export function TestsList({ initialTests, total, page, search, status, from, to 
     return {
       id: (t.id || t._id || '') as string,
       title: t.title,
-      description: t.description,
+      description: t.description || "",
       status: (t.status || 'waiting') as "waiting" | "ongoing" | "completed",
       // Map other fields as necessary for TestCard
       questions: t.problemCount || t.questions?.length || 0,

@@ -63,7 +63,7 @@ export default async function FeedbackDashboard({
   }
   const route = `/admin/tests/${testId}/feedback`;
   return (
-    <main className="h-full flex-1 overflow-auto bg-background">
+    <div className="h-full flex-1 overflow-auto bg-background">
       <div className="space-y-8 p-4 pb-16 sm:p-6 lg:p-8">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
           <div className="flex items-start gap-4">
@@ -280,7 +280,7 @@ export default async function FeedbackDashboard({
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 

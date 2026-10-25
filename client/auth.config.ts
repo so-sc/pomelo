@@ -1,6 +1,6 @@
 
 import type { NextAuthConfig } from "next-auth"
-import { SignJWT } from "jose"
+import { SignJWT, decodeJwt } from "jose"
 import { getBaseUrl } from "@/lib/env";
 import { clientIpHeaders } from "@/lib/client-ip";
 import { getEnabledProviders, getProviderEntry } from "@/lib/auth/providers";
@@ -129,7 +129,8 @@ export const authConfig = {
             if (user) {
                 const u = user as User;
                 token.role = u.role
-                token.id = u.id || u._id
+                // _id first: for credentials sign-ins Auth.js fills `id` with a random UUID.
+                token.id = String(u._id || u.id)
                 token.email = u.email
 
                 // Mint a fresh backend token — if this fails, sign-in must fail too,
@@ -150,8 +151,10 @@ export const authConfig = {
             // session can renew its short-lived backend token.
             if (token.id && shouldRefreshBackendToken(token.backendTokenExp, Math.floor(Date.now() / 1000))) {
                 try {
+                    // The user id comes from the backend token minted at sign-in, which is the
+                    // database id even for sessions whose token.id predates the fix above.
                     const minted = await mintBackendToken({
-                        id: token.id as string,
+                        id: String(decodeJwt(token.backendToken as string).userId ?? token.id),
                         role: token.role as string,
                         email: token.email as string,
                     });

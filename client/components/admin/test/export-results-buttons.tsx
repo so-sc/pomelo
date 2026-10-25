@@ -24,7 +24,8 @@ function downloadBlob(content: string, filename: string, type: string) {
 }
 
 function slugify(title: string) {
-  return title.toLowerCase().replace(/\s+/g, "-");
+  // Same rule as the server's export filenames: letters and digits only.
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "contest";
 }
 
 export default function ExportResultsButtons({
