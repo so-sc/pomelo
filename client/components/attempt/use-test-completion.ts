@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { toast } from "@/components/ui/banner";
 import {
   AUTO_SUBMIT_REASON,
@@ -10,6 +9,7 @@ import {
 } from "@/lib/attempt-integrity";
 
 import { endTest } from "@/actions/contest";
+import { useAttemptRuntime } from "./attempt-runtime";
 
 interface CompleteTestOptions {
   forced?: boolean;
@@ -22,13 +22,15 @@ interface CompleteTestOptions {
 export function useTestCompletion() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
+  const { flushPendingSaves } = useAttemptRuntime();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const testId = String(params.testid ?? "");
 
   const completeTest = useCallback(async (options: CompleteTestOptions = {}) => {
-    if (!session?.backendToken || !testId) {
+    // No client-session check: endTest authenticates server-side, and waiting on
+    // useSession would drop a timer auto-submit that fires while it is still loading.
+    if (!testId) {
       toast.error("Unable to submit this test right now.");
       return { success: false as const };
     }
@@ -36,6 +38,8 @@ export function useTestCompletion() {
     setIsSubmitting(true);
 
     try {
+      // Unsaved MCQ answers (debounced multi-select) must land before the attempt closes.
+      await flushPendingSaves();
       const forced = Boolean(options.forced);
       const autoReason = options.forced ? options.autoSubmitReason ?? AUTO_SUBMIT_REASON : undefined;
       const data = await endTest(testId, forced, autoReason);
@@ -84,7 +88,7 @@ export function useTestCompletion() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [router, session?.backendToken, testId]);
+  }, [router, testId, flushPendingSaves]);
 
   return {
     completeTest,

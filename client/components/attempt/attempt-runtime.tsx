@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { submitMcq } from "@/actions/contest";
+import { claimAttemptStorage } from "@/lib/attempt-integrity";
 
 export type ExecutionAction = "run" | "submit";
 
@@ -46,6 +47,10 @@ export interface AttemptRuntime {
   ): Promise<ExecutionResult>;
   saveMcqAnswer(questionId: string, answers: string[]): Promise<McqSaveResult>;
   progress: Record<string, QuestionProgress>;
+  /** A question registers how to flush its unsaved answer; returns the unregister function. */
+  registerPendingSave(flush: () => Promise<void>): () => void;
+  /** Lands every unsaved answer; awaited before the test is submitted. */
+  flushPendingSaves(): Promise<void>;
 }
 
 export type QuestionProgress = "attempted" | "solved";
@@ -135,6 +140,11 @@ export function ContestAttemptRuntime({
 }) {
   // Per user: on a shared machine, another account's tray must not leak in.
   const storageKey = `pomelo_progress_${contestId}_${userId ?? "anon"}`;
+  // Runs during the first client render, before child effects (the integrity monitor's
+  // violation count, the editor's draft) read this test's storage.
+  useState(() => {
+    if (userId) claimAttemptStorage(contestId, userId);
+  });
   const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
 
   useEffect(() => {
@@ -154,9 +164,20 @@ export function ContestAttemptRuntime({
     });
   }, [storageKey]);
 
+  const pendingSaves = useRef(new Set<() => Promise<void>>());
+  const registerPendingSave = useCallback((flush: () => Promise<void>) => {
+    pendingSaves.current.add(flush);
+    return () => { pendingSaves.current.delete(flush); };
+  }, []);
+  const flushPendingSaves = useCallback(async () => {
+    await Promise.all([...pendingSaves.current].map((flush) => flush()));
+  }, []);
+
   const runtime = useMemo<AttemptRuntime>(() => ({
     mode: "contest",
     progress,
+    registerPendingSave,
+    flushPendingSaves,
     execute: async (action, questionId, code, language, onExecuting) => {
       const result = await streamExecution(`/api/test/${contestId}/${action}`, questionId, code, language, onExecuting);
       if (result.success) {
@@ -170,7 +191,7 @@ export function ContestAttemptRuntime({
       if (result.success) setQuestionProgress(questionId, answers.length > 0 ? "solved" : null);
       return result;
     },
-  }), [contestId, progress, setQuestionProgress]);
+  }), [contestId, progress, setQuestionProgress, registerPendingSave, flushPendingSaves]);
 
   return (
     <AttemptRuntimeContext.Provider value={runtime}>
@@ -198,6 +219,8 @@ export function PreviewAttemptRuntime({
         onExecuting
       ),
     saveMcqAnswer: async () => ({ success: true }),
+    registerPendingSave: () => () => {},
+    flushPendingSaves: async () => {},
   }), [questionId]);
 
   return (

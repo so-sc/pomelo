@@ -4,6 +4,7 @@ import { CodingProblem, MCQProblem, Problem } from "@/types/problem";
 import MCQScreen from "@/components/attempt/mcq";
 import { redirect } from "next/navigation";
 import { fetchBackend } from "@/lib/fetch";
+import { draftKeyPrefix } from "@/lib/attempt-integrity";
 
 interface Props {
   params: Promise<{
@@ -35,7 +36,7 @@ export default async function TestContentPage(props: Props) {
   return (
     <div className="w-full h-full">
       {currentProblem.type.toLowerCase() === "coding" ? (
-        <CodeScreen problem={currentProblem as CodingProblem} />
+        <CodeScreen problem={currentProblem as CodingProblem} draftKeyPrefix={draftKeyPrefix(testid)} />
       ) : (
         <MCQScreen
           problem={currentProblem as MCQProblem}

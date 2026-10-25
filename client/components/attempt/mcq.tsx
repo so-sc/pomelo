@@ -96,14 +96,27 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     }, DEBOUNCE_MS);
   }, [doSave]);
 
-  // Cleanup on unmount
+  // A debounced or in-flight save must land before the test is submitted (from any
+  // submit path) or this question unmounts, e.g. when switching questions from the tray.
+  const flushAll = useCallback(async () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (pendingSelectionRef.current !== null) {
+      lastSaveRef.current = doSave(pendingSelectionRef.current);
+    }
+    await lastSaveRef.current?.catch(() => {});
+  }, [doSave]);
+
+  const { registerPendingSave } = runtime;
   useEffect(() => {
+    const unregister = registerPendingSave(flushAll);
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
+      void flushAll();
+      unregister();
     };
-  }, []);
+  }, [registerPendingSave, flushAll]);
 
   const isMultiple = problem.questionType === "Multiple Correct";
 
@@ -147,16 +160,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
   };
 
   const handleFinishConfirm = async () => {
-    // Flush any debounced selection so it lands before the test ends
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    if (pendingSelectionRef.current !== null) {
-      await doSave(pendingSelectionRef.current);
-    }
-    // Await an in-flight save (e.g. the debounce fired while the dialog was open)
-    await lastSaveRef.current?.catch(() => {});
+    // completeTest lands any pending answer saves first.
     const result = await completeTest();
     if (result.success) {
       setShowSubmitDialog(false);
@@ -179,7 +183,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
           <div className="py-6 space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-xl font-semibold text-foreground text-start">
+              <h1 className="text-xl font-semibold text-foreground text-start break-words">
                 {problem.title}
               </h1>
               {/* Question Type */}
@@ -190,7 +194,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                 </span>
               </div>
               {/* Description */}
-              <p className="mt-4 text-foreground/80 leading-relaxed">
+              <p className="mt-4 text-foreground/80 leading-relaxed break-words">
                 {problem.description}
               </p>
             </div>
@@ -227,7 +231,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               id={optId}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (
@@ -268,7 +272,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               onCheckedChange={() => handleMultipleSelect(optValue)}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (

@@ -67,17 +67,34 @@ export function clearAttemptIntegrityState(testId: string) {
   resetAttemptObfuscation();
 }
 
-// Everything a previous attempt left in this browser: violation count, code drafts and
-// the question tray's progress (any user's), so the next attempt starts clean.
+// Prefix of this test's code drafts; see the attempt question page.
+export const draftKeyPrefix = (testId: string) => `pomelo_draft_${testId}`;
+
+const ownerKey = (testId: string) => `pomelo:attempt:owner:${testId}`;
+
+// Everything an attempt at this test left in this browser: violation count, code drafts
+// and the question tray's progress. Other tests' state is left alone.
 export function clearAttemptStorage(testId: string) {
   if (!isBrowser()) return;
   clearAttemptIntegrityState(testId);
   try {
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("pomelo_draft_") || key.startsWith(`pomelo_progress_${testId}`)) {
+      if (key.startsWith(`${draftKeyPrefix(testId)}_`) || key.startsWith(`pomelo_progress_${testId}`) || key === ownerKey(testId)) {
         localStorage.removeItem(key);
       }
     });
+  } catch { /* localStorage unavailable */ }
+}
+
+// On a shared machine, a different account opening this test must not inherit the last
+// person's violations or drafts. The same account resuming keeps them, so re-entering
+// the test can't be used to reset the violation count.
+export function claimAttemptStorage(testId: string, userId: string) {
+  if (!isBrowser()) return;
+  try {
+    if (localStorage.getItem(ownerKey(testId)) === userId) return;
+    clearAttemptStorage(testId);
+    localStorage.setItem(ownerKey(testId), userId);
   } catch { /* localStorage unavailable */ }
 }
 

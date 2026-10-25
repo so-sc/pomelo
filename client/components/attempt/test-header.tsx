@@ -4,7 +4,6 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useTestCompletion } from "./use-test-completion";
 import { getContestData } from "@/actions/contest";
 import { toast } from "@/components/ui/banner";
@@ -19,7 +18,6 @@ interface TestHeaderProps {
 export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
   const { completeTest, isSubmitting } = useTestCompletion();
   const [violations, setViolations] = React.useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
@@ -73,7 +71,7 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   }, [params.testid, router]);
 
   const handleFinish = () => {
-    if (!session?.backendToken || !params.testid) return;
+    if (!params.testid) return;
     setShowConfirmDialog(true);
   };
 

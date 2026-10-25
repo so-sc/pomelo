@@ -143,12 +143,11 @@ export default function ContestLanding() {
         }
       }
 
-      // Clear anything a previous attempt (possibly another account's) left behind
-      clearAttemptStorage(testid as string);
-
       const result = await startTest(testid as string);
 
       if (result.success) {
+        // A fresh attempt starts clean; a resumed one keeps its violations and drafts.
+        if (!result.data?.resumed) clearAttemptStorage(testid as string);
         // Fetch problems to redirect to the first one
         const questionsData = await getContestData(testid as string);
         if (questionsData.success && questionsData.data.problems?.length > 0) {
