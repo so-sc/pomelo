@@ -55,12 +55,25 @@ export function CodeScreen({
   }, [initialLanguage, problem.savedCode, draftKey]);
 
   React.useEffect(() => {
-    if (isMounted && code !== "") {
-      try {
+    if (!isMounted) return;
+    try {
+      if (code !== "") {
         localStorage.setItem(draftKey(language), code);
-      } catch { /* localStorage unavailable */ }
-    }
-  }, [code, language, isMounted, draftKey]);
+      }
+
+      const languages = Object.keys(problem.boilerplateCode || {});
+      const draftLanguages = languages.length > 0 ? languages : [language];
+      const hasEditedDraft = draftLanguages.some((lang) => {
+        const starterCode = problem.boilerplateCode?.[lang as keyof typeof problem.boilerplateCode]
+          || (languages.length === 0 ? "// Start coding here" : "");
+        const savedDraft = lang === language ? code : localStorage.getItem(draftKey(lang));
+        return savedDraft !== null && savedDraft !== starterCode;
+      });
+      const editedDraftKey = `${draftKeyPrefix}_edited_${problem.id}`;
+      if (hasEditedDraft) localStorage.setItem(editedDraftKey, "true");
+      else localStorage.removeItem(editedDraftKey);
+    } catch { /* localStorage unavailable */ }
+  }, [code, language, isMounted, draftKey, draftKeyPrefix, problem.id, problem.boilerplateCode]);
 
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);

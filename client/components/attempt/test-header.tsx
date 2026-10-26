@@ -10,17 +10,24 @@ import { toast } from "@/components/ui/banner";
 import { readViolationCount, MAX_VIOLATIONS } from "@/lib/attempt-integrity";
 import TestTimer from "./test-timer";
 import SubmitConfirmDialog from "./submit-confirm-dialog";
+import { useAttemptRuntime } from "./attempt-runtime";
+import type { ProblemMeta } from "./question-nav";
 
 interface TestHeaderProps {
   initialTimeRemaining: number;
+  questions: ProblemMeta[];
 }
 
-export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
+export default function TestHeader({ initialTimeRemaining, questions }: TestHeaderProps) {
   const router = useRouter();
   const params = useParams();
   const { completeTest, isSubmitting } = useTestCompletion();
+  const runtime = useAttemptRuntime();
   const [violations, setViolations] = React.useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const [isPreparingReview, setIsPreparingReview] = React.useState(false);
+  const preparingReviewRef = React.useRef(false);
+  const [reviewProgress, setReviewProgress] = React.useState(runtime.progress);
 
   // Sync with cross-tab/local violation updates
   React.useEffect(() => {
@@ -70,14 +77,27 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
     return () => clearInterval(interval);
   }, [params.testid, router]);
 
-  const handleFinish = () => {
-    if (!params.testid) return;
-    setShowConfirmDialog(true);
+  const handleFinish = async () => {
+    if (!params.testid || preparingReviewRef.current || isSubmitting || !runtime.beginReviewPreparation()) return;
+    preparingReviewRef.current = true;
+    setIsPreparingReview(true);
+    try {
+      const savedProgress = await runtime.flushPendingSaves();
+      if (!runtime.isReviewPreparationActive() || runtime.isSubmissionInProgress()) return;
+      setReviewProgress(savedProgress);
+      setShowConfirmDialog(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save answers before review.");
+    } finally {
+      preparingReviewRef.current = false;
+      runtime.endReviewPreparation();
+      setIsPreparingReview(false);
+    }
   };
 
   const handleConfirmFinish = async () => {
-    setShowConfirmDialog(false);
-    await completeTest({ replace: false });
+    const result = await completeTest({ replace: false });
+    if (result.success) setShowConfirmDialog(false);
   };
 
   return (
@@ -94,16 +114,23 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
         variant={"secondary"}
         className="text-sm bg-green-600 hover:bg-green-700 text-white border-none h-9 ml-2"
         onClick={handleFinish}
-        disabled={isSubmitting}
+        disabled={isSubmitting || isPreparingReview}
       >
-        {isSubmitting ? "Finishing..." : "Submit"}
-        {!isSubmitting && <BadgeCheck className="h-4 w-4 ml-2" />}
+        {isPreparingReview ? "Preparing..." : isSubmitting ? "Finishing..." : "Submit"}
+        {!isSubmitting && !isPreparingReview && <BadgeCheck className="h-4 w-4 ml-2" />}
       </Button>
       <SubmitConfirmDialog
         open={showConfirmDialog}
         isSubmitting={isSubmitting}
+        testId={String(params.testid ?? "")}
+        questions={questions}
+        progress={reviewProgress}
         onConfirm={handleConfirmFinish}
         onCancel={() => setShowConfirmDialog(false)}
+        onSelectQuestion={(id) => {
+          setShowConfirmDialog(false);
+          router.push(`/attempt/test/${params.testid}/question/${id}`);
+        }}
       />
     </div>
   );

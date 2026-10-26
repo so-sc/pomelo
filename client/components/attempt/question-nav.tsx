@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuestionProgress, useAttemptRuntime } from "./attempt-runtime";
 
-export type ProblemMeta = { id: string; type: string };
+export type ProblemMeta = { id: string; type: string; title?: string };
 
 function Group({ label, problems, currentId, progress, visited, onSelect }: {
   label: string;

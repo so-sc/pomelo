@@ -45,9 +45,10 @@ export default async function TestLayout({
 
   const problems = result.data?.problems || [];
 
-  const problemMeta = problems.map((q: { id: string; type: string }) => ({
+  const problemMeta = problems.map((q: { id: string; type: string; title?: string }) => ({
     id: String(q.id),
-    type: q.type
+    type: q.type,
+    title: q.title
   }));
   const initialProgress: Record<string, QuestionProgress> = {};
   for (const q of problems as Problem[]) {
@@ -61,7 +62,7 @@ export default async function TestLayout({
     <main className="w-screen h-screen pt-12 flex">
       <ContestAttemptRuntime contestId={testid} userId={session?.user?.id} initialProgress={initialProgress}>
         <IntegrityMonitor />
-        <TestHeader initialTimeRemaining={initialTimeRemaining} />
+        <TestHeader initialTimeRemaining={initialTimeRemaining} questions={problemMeta} />
         <QuestionNav problems={problemMeta} />
         <div className={cn("flex-1 min-w-0 h-full", !DISABLE_PROCTORING && "select-none")}>{children}</div>
       </ContestAttemptRuntime>
