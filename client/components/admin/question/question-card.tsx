@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { deleteQuestion } from "@/actions/delete-question";
 import { exportQuestion } from "@/actions/export-question";
 import { buildQuestionPreviewHref } from "@/lib/return-url";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Props {
   problem: BaseProblem;
@@ -32,6 +33,8 @@ export default function QuestionCard({
   previewReturnUrl,
   previewInNewTab = false,
 }: Props) {
+  const { confirm, dialog } = useConfirm();
+
   const getTypeIcon = (type: string | undefined) => {
     return type === "coding" || type === "Coding" ? (
       <Code className="w-4 h-4" />
@@ -101,6 +104,7 @@ export default function QuestionCard({
       )}
       onClick={handleClick}
     >
+      {dialog && <div onClick={(e) => e.stopPropagation()}>{dialog}</div>}
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="font-medium text-foreground">{problem.title}</h4>
@@ -164,16 +168,22 @@ export default function QuestionCard({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                aria-label="Delete question"
                 onClick={async (e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  if (confirm("Are you sure you want to delete this question?")) {
-                    const res = await deleteQuestion(String(problem._id || problem.id));
-                    if (res.success) {
-                      toast.success("Question deleted");
-                    } else {
-                      toast.error("Delete failed", { description: res.error || "Failed to delete question" });
-                    }
+                  const ok = await confirm({
+                    title: "Delete this question?",
+                    description: "It is removed from the question bank. Tests that already include it keep their copy.",
+                    confirmLabel: "Delete question",
+                    destructive: true,
+                  });
+                  if (!ok) return;
+                  const res = await deleteQuestion(String(problem._id || problem.id));
+                  if (res.success) {
+                    toast.success("Question deleted");
+                  } else {
+                    toast.error("Delete failed", { description: res.error || "Failed to delete question" });
                   }
                 }}
               >

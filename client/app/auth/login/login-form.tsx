@@ -13,7 +13,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { authenticate } from "@/actions/auth";
 import type { AuthMethods } from "@/lib/auth/providers";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
-import { getSafeCallbackUrl, withCallbackUrl } from "@/lib/return-url";
+import { getSafeCallbackUrl, postLoginUrl, withCallbackUrl } from "@/lib/return-url";
 
 const SSO_ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: "This email is already linked to a different account.",
@@ -79,7 +79,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
 
       if (result === "success") {
         // Full load so the new session cookie is picked up everywhere.
-        window.location.href = callbackUrl;
+        window.location.href = postLoginUrl(callbackUrl);
       } else if (result) {
         toast.error(result);
       }

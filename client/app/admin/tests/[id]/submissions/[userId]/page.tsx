@@ -243,7 +243,7 @@ export default async function SubmissionDetailPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex items-start gap-4">
                         <Button variant="outline" size="icon" className="mt-1 shrink-0" asChild>
-                            <Link href={`/admin/tests/${contestId}/result`}>
+                            <Link href={`/admin/tests/${contestId}/result`} aria-label="Back to results">
                                 <ArrowLeft className="h-5 w-5" />
                             </Link>
                         </Button>

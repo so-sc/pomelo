@@ -19,13 +19,13 @@ import {
 const codingSchema = z.object({
   id: z.string().optional(),
   type: z.literal("coding"),
-  title: z.string().min(1),
-  description: z.string().min(1),
+  title: z.string().trim().min(1, "Title is required"),
+  description: z.string().trim().min(1, "Description is required"),
   points: z.coerce.number().min(0),
   difficulty: z.enum(["easy", "medium", "hard"]),
-  inputFormat: z.string().min(1),
-  outputFormat: z.string().min(1),
-  constraints: z.array(z.string().min(1)),
+  inputFormat: z.string().min(1, "Input format is required"),
+  outputFormat: z.string().min(1, "Output format is required"),
+  constraints: z.array(z.string().min(1, "Constraint cannot be empty")),
   boilerplate: z
     .record(z.string().optional())
     .refine((val) => Object.values(val).some((v) => v && v.trim() !== ""), {
@@ -55,8 +55,8 @@ const codingSchema = z.object({
 const mcqSchema = z.object({
   id: z.string().optional(),
   type: z.literal("mcq"),
-  title: z.string().min(1),
-  description: z.string().min(1),
+  title: z.string().trim().min(1, "Title is required"),
+  description: z.string().trim().min(1, "Description is required"),
   points: z.coerce.number().min(0),
   difficulty: z.enum(["easy", "medium", "hard"]),
   questionType: z.enum(["single", "multiple"]),
@@ -64,7 +64,7 @@ const mcqSchema = z.object({
     .array(
       z.object({
         id: z.string(),
-        text: z.string().min(1),
+        text: z.string().trim().min(1, "Option text is required"),
       })
     )
     .length(4, "Exactly 4 options are required"),

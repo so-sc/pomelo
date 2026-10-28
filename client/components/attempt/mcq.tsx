@@ -182,7 +182,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
           <div className="py-6 space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-xl font-semibold text-foreground text-start break-words">
+              <h1 className="text-xl font-semibold text-foreground text-start wrap-anywhere">
                 {problem.title}
               </h1>
               {/* Question Type */}
@@ -193,7 +193,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                 </span>
               </div>
               {/* Description */}
-              <p className="mt-4 text-foreground/80 leading-relaxed break-words">
+              <p className="mt-4 text-foreground/80 leading-relaxed whitespace-pre-line wrap-anywhere">
                 {problem.description}
               </p>
             </div>
@@ -230,7 +230,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               id={optId}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 wrap-anywhere text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (
@@ -271,7 +271,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               onCheckedChange={() => handleMultipleSelect(optValue)}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 wrap-anywhere text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (

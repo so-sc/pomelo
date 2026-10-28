@@ -57,6 +57,8 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
 
     if (!password.trim()) {
       errors.push("Password is required.");
+    } else if (password.length < 6) {
+      errors.push("Password must be at least 6 characters.");
     }
 
     if (!confirmPassword.trim()) {
@@ -72,7 +74,8 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
     }
 
     if (errors.length > 0) {
-      errors.forEach((err, i) => setTimeout(() => toast.error(err), i * 100));
+      // The banner holds one message, so show the first problem rather than flashing each.
+      toast.error(errors[0]);
       return false;
     }
 

@@ -73,7 +73,7 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state.success, state.message, router]);
+  }, [state, router]);
 
   const handleSubmit = form.handleSubmit((data) => {
     startTransition(() => {
@@ -88,7 +88,7 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href={`/admin/tests/${testData?.id || ''}`}>
-            <Button variant="outline" size="icon" className="text-foreground">
+            <Button variant="outline" size="icon" className="text-foreground" aria-label="Back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>

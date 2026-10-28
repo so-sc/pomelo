@@ -25,6 +25,7 @@ import { useEffect, useRef } from "react";
 
 const TRACKED_IDS = ["result-search", "score-min", "score-max"] as const;
 const INTENT_WINDOW_MS = 200;
+const OVERLAY_SELECTOR = "[data-radix-popper-content-wrapper], [role=listbox], [role=menu], [role=dialog]";
 
 export function SearchFocusKeeper() {
   const armedId = useRef<string | null>(null);
@@ -33,6 +34,7 @@ export function SearchFocusKeeper() {
   const lastTab = useRef(0);
   const rafId = useRef<number | null>(null);
   const delayedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoring = useRef(false);
 
   useEffect(() => {
     const isTracked = (el: Element | null | undefined): el is HTMLInputElement =>
@@ -61,8 +63,15 @@ export function SearchFocusKeeper() {
       // Re-query by ID: if the input was remounted, this finds the NEW node.
       const el = document.getElementById(id);
       if (!isTracked(el)) return;
-      if (document.activeElement === el) return;
-      el.focus({ preventScroll: true });
+      if (document.activeElement === el || restoring.current) return;
+      // focus() fires focusin synchronously; without this guard a focus trap that
+      // pulls focus back would bounce between us until the stack overflows.
+      restoring.current = true;
+      try {
+        el.focus({ preventScroll: true });
+      } finally {
+        restoring.current = false;
+      }
       if (caret.current && el.value.length > 0) {
         const start = Math.min(caret.current.start, el.value.length);
         const end = Math.min(caret.current.end, el.value.length);
@@ -103,8 +112,10 @@ export function SearchFocusKeeper() {
         return;
       }
       // Focus landed outside the filter inputs. If the user just clicked or
-      // tabbed there, that is intentional. If not, something stole focus.
+      // tabbed there, or an overlay (select, menu, dialog) took it, that is
+      // intentional. If not, something stole focus.
       const intentional =
+        !!target?.closest(OVERLAY_SELECTOR) ||
         Date.now() - lastPointerDown.current < INTENT_WINDOW_MS ||
         Date.now() - lastTab.current < INTENT_WINDOW_MS;
       if (intentional) {

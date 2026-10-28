@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   InputOTP,
   InputOTPGroup,
@@ -78,6 +79,7 @@ export default function JoinContestPage() {
 
         <InputOTP
           maxLength={6}
+          pattern={REGEXP_ONLY_DIGITS}
           value={otp}
           onChange={setOtp}
           disabled={isLoading}

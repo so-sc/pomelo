@@ -138,8 +138,10 @@ export default function MCQCard() {
                     >
                       {Array.from({ length: 4 }, (_, index) => (
                         <div key={index} className="flex items-center gap-3">
-                          <RadioGroupItem value={`${index}`} />
-                          <FormLabel>Option {index + 1}</FormLabel>
+                          <RadioGroupItem value={`${index}`} id={`correct-${index}`} />
+                          <label htmlFor={`correct-${index}`} className="text-sm font-medium cursor-pointer">
+                            {options?.[index]?.text || `Option ${index + 1}`}
+                          </label>
                         </div>
                       ))}
                     </RadioGroup>
@@ -152,12 +154,15 @@ export default function MCQCard() {
                       return (
                         <div key={index} className="flex items-center gap-3">
                           <Checkbox
+                            id={`correct-${index}`}
                             checked={isChecked}
                             onCheckedChange={(checked) =>
                               handleMultiToggle(optionId, !!checked)
                             }
                           />
-                          <FormLabel>Option {index + 1}</FormLabel>
+                          <label htmlFor={`correct-${index}`} className="text-sm font-medium cursor-pointer">
+                            {options?.[index]?.text || `Option ${index + 1}`}
+                          </label>
                         </div>
                       );
                     })}

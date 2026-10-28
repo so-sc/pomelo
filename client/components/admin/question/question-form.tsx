@@ -171,7 +171,7 @@ export default function QuestionForm({ type, isCreating, initialData }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href={"/admin/questions"}>
-            <Button variant="outline" size="icon" className="text-foreground">
+            <Button variant="outline" size="icon" className="text-foreground" aria-label="Back to questions">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>

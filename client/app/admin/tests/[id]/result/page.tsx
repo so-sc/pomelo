@@ -154,7 +154,7 @@ export default async function AdminTestResultPage({
                 <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex items-start gap-4">
                         <Button variant="outline" size="icon" className="mt-1 shrink-0" asChild>
-                            <Link href={`/admin/tests/${data.id}`}>
+                            <Link href={`/admin/tests/${data.id}`} aria-label="Back to test">
                                 <ArrowLeft className="h-5 w-5" />
                             </Link>
                         </Button>

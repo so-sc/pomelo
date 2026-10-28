@@ -74,7 +74,7 @@ export default async function AdminLeaderboardPage({ params, searchParams }: Lea
         <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
             <Button variant="outline" size="icon" className="mt-1 shrink-0" asChild>
-              <Link href={`/admin/tests/${id}`}>
+              <Link href={`/admin/tests/${id}`} aria-label="Back to test">
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             </Button>
@@ -163,7 +163,7 @@ export default async function AdminLeaderboardPage({ params, searchParams }: Lea
                 There was a problem retrieving the leaderboard data. Please try again later.
               </p>
               <Button variant="outline" asChild>
-                <Link href="/admin/tests">Back to Dashboard</Link>
+                <Link href="/admin/tests">Back to tests</Link>
               </Button>
             </CardContent>
           </Card>

@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Edit, BarChart3, Copy, Loader2, Trophy, OctagonX, Ban, Trash2 } from "lucide-react";
 import { Test } from "@/types/test";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/banner";
 
 interface QuickActionsCardProps {
   test: Test;
@@ -27,25 +29,41 @@ export function QuickActionsCard({ test }: QuickActionsCardProps) {
   const [isCloning, setIsCloning] = useState(false);
   const [endingAction, setEndingAction] = useState<"end" | "force-end" | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   const handleClone = async () => {
-    if (confirm("Are you sure you want to duplicate this test?")) {
-      setIsCloning(true);
-      const res = await cloneTestAction(testId as string);
-      setIsCloning(false);
-      if (res.success && res.newTestId) {
-        router.push(`/admin/tests/${res.newTestId}/edit`);
-      } else {
-        alert(res.message);
-      }
+    const ok = await confirm({
+      title: "Duplicate this test?",
+      description: "A copy with the same questions and settings opens for editing.",
+      confirmLabel: "Duplicate",
+    });
+    if (!ok) return;
+
+    setIsCloning(true);
+    const res = await cloneTestAction(testId as string);
+    setIsCloning(false);
+    if (res.success && res.newTestId) {
+      router.push(`/admin/tests/${res.newTestId}/edit`);
+    } else {
+      toast.error(res.message || "Failed to duplicate test");
     }
   };
 
   const handleEndTest = async (force: boolean) => {
-    const message = force
-      ? "Force end this test? Every candidate currently in progress will be submitted immediately with their current answers."
-      : "End this test? No one will be able to join or start it anymore, but candidates already in progress can keep going until their own time runs out.";
-    if (!confirm(message)) return;
+    const ok = await confirm(force
+      ? {
+          title: "Force end this test?",
+          description: "Every candidate currently in progress will be submitted immediately with their current answers.",
+          confirmLabel: "Force end",
+          destructive: true,
+        }
+      : {
+          title: "End this test?",
+          description: "No one will be able to join or start it anymore, but candidates already in progress can keep going until their own time runs out.",
+          confirmLabel: "End test",
+          destructive: true,
+        });
+    if (!ok) return;
 
     setEndingAction(force ? "force-end" : "end");
     const res = await endTestAction(testId as string, force);
@@ -54,12 +72,18 @@ export function QuickActionsCard({ test }: QuickActionsCardProps) {
     if (res.success) {
       router.refresh();
     } else {
-      alert(res.message);
+      toast.error(res.message || "Failed to end test");
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this test? This cannot be undone.")) return;
+    const ok = await confirm({
+      title: "Delete this test?",
+      description: "The test and all of its submissions are removed. This cannot be undone.",
+      confirmLabel: "Delete test",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     const res = await deleteTestAction(testId as string);
@@ -68,12 +92,13 @@ export function QuickActionsCard({ test }: QuickActionsCardProps) {
     if (res.success) {
       router.push("/admin/tests");
     } else {
-      alert(res.message);
+      toast.error(res.message || "Failed to delete test");
     }
   };
 
   return (
     <Card className="bg-card border-border shadow-md">
+      {dialog}
       <CardHeader>
         <CardTitle className="text-xl text-foreground">Quick Actions</CardTitle>
         <CardDescription className="text-muted-foreground">

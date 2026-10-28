@@ -24,8 +24,8 @@ export default function DescriptionPanel({
       <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-4 p-4 pb-18 text-sm">
           <div>
-            <h2 className="text-2xl font-semibold pb-4">{problem.title}</h2>
-            <p className="text-muted-foreground">{problem.description}</p>
+            <h2 className="text-2xl font-semibold pb-4 wrap-anywhere">{problem.title}</h2>
+            <p className="text-muted-foreground whitespace-pre-line wrap-anywhere">{problem.description}</p>
           </div>
 
           <Separator />

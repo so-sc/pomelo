@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Upload, FileJson, AlertCircle, CheckCircle2, AlertTriangle, X, Download, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,15 @@ export default function BulkImportDialog({
     message: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -277,12 +286,17 @@ export default function BulkImportDialog({
   );
 
   return createPortal(
-    <div className="fixed inset-x-0 bottom-0 top-[var(--banner-h,0px)] z-[100] flex flex-col bg-background">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bulk-import-title"
+      className="fixed inset-x-0 bottom-0 top-[var(--banner-h,0px)] z-[100] flex flex-col bg-background"
+    >
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b px-6 py-4 lg:px-10">
         <div className="flex items-center gap-2.5">
           <Upload className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Bulk Import Questions</h2>
+          <h2 id="bulk-import-title" className="text-base font-semibold">Bulk Import Questions</h2>
         </div>
         <button
           onClick={onClose}

@@ -80,3 +80,9 @@ export function getSafeCallbackUrl(candidate: string | null | undefined, host?: 
 export function withCallbackUrl(pathname: string, callbackUrl: string) {
   return callbackUrl === "/" ? pathname : `${pathname}?${new URLSearchParams({ callbackUrl })}`;
 }
+
+// A sign-in with no particular destination goes through /auth/continue, which picks
+// the dashboard by role once the session exists.
+export function postLoginUrl(callbackUrl: string) {
+  return callbackUrl === "/" ? "/auth/continue" : callbackUrl;
+}

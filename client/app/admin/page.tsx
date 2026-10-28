@@ -2,6 +2,7 @@ import React from "react";
 import HeroSection, { DashboardStats } from "@/components/admin/hero-section";
 import { Test } from "@/types/test";
 import { fetchBackend } from "@/lib/fetch";
+import { formatDuration } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -59,16 +60,6 @@ export default async function AdminAnalyticsPage() {
     return "waiting";
   };
 
-  const formatDuration = (durationMinutes?: number, fallback?: unknown) => {
-    if (typeof fallback === "string" && fallback.trim().length > 0) return fallback;
-    if (!durationMinutes || durationMinutes <= 0) return "00:00";
-
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-  };
-
   if (apiData && apiData.success) {
     stats = {
       activeContests: apiData.activeContests || 0,
@@ -98,7 +89,7 @@ export default async function AdminAnalyticsPage() {
         _id: test._id as string | undefined,
         title: (test.title as string) || "Untitled",
         description: (test.description as string) || "",
-        duration: formatDuration(test.durationMinutes as number | undefined, test.duration),
+        duration: formatDuration(test.durationMinutes as number),
         totalQuestions,
         startsAt: startTime || "",
         status: normalizeStatus(test.status, startTime, endTime),

@@ -354,21 +354,27 @@ export default function IntegrityMonitor() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="integrity-title"
+      aria-describedby="integrity-description"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+    >
       <Card className="w-full max-w-lg rounded-2xl border-border py-0 shadow-2xl">
         <CardHeader className="space-y-3 border-b px-6 py-5">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
               Test Rules
             </p>
-            <CardTitle>
+            <CardTitle id="integrity-title">
               {showLockedModal
                 ? isSubmitting
                   ? "Submitting test"
                   : "Test ended"
                 : warningCopy?.title}
             </CardTitle>
-            <CardDescription className={`leading-6 ${!showLockedModal && warningCopy ? "text-foreground" : ""}`}>
+            <CardDescription id="integrity-description" className={`leading-6 ${!showLockedModal && warningCopy ? "text-foreground" : ""}`}>
               {showLockedModal
                 ? isSubmitting
                   ? "Please wait while your test is submitted."

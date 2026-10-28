@@ -45,15 +45,26 @@ export function CodeScreen({
     [problemId, boilerplateCode, draftKeyPrefix]
   );
 
-  // If we do not have a saved code from the server for the current initial language, check local storage
-  const initialDraftKey = isMounted && !problem.savedCode ? draftKey(initialLanguage) : null;
-  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
-  if (initialDraftKey !== loadedDraftKey) {
-    setLoadedDraftKey(initialDraftKey);
-    if (initialDraftKey) {
+  // Restore the language and draft this browser last had open; drafts are saved on every
+  // edit, so they are never older than the code the server saved at the last submit.
+  const languageKey = `${draftKeyPrefix}_${problemId}_language`;
+  const restoreKey = isMounted ? languageKey : null;
+  const [restoredKey, setRestoredKey] = useState<string | null>(null);
+  if (restoreKey !== restoredKey) {
+    setRestoredKey(restoreKey);
+    if (restoreKey) {
       try {
-        const draft = localStorage.getItem(initialDraftKey);
-        if (draft) setCode(draft);
+        const stored = localStorage.getItem(restoreKey);
+        if (stored && (availableLanguages as string[]).includes(stored)) {
+          const draft = localStorage.getItem(draftKey(stored));
+          setLanguage(stored);
+          setCode(draft ?? (stored === problem.savedLanguage && problem.savedCode
+            ? problem.savedCode
+            : boilerplateCode?.[stored as keyof typeof boilerplateCode] || ""));
+        } else if (!problem.savedCode) {
+          const draft = localStorage.getItem(draftKey(initialLanguage));
+          if (draft) setCode(draft);
+        }
       } catch { /* localStorage unavailable (e.g. private browsing) */ }
     }
   }
@@ -62,9 +73,10 @@ export function CodeScreen({
     if (isMounted && code !== "") {
       try {
         localStorage.setItem(draftKey(language), code);
+        localStorage.setItem(languageKey, language);
       } catch { /* localStorage unavailable */ }
     }
-  }, [code, language, isMounted, draftKey]);
+  }, [code, language, isMounted, draftKey, languageKey]);
 
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);

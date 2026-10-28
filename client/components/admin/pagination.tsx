@@ -21,6 +21,8 @@ export function Pagination({ page, total, pageSize = PAGE_SIZE, pageParam = "pag
 
   const pages = Math.ceil(total / pageSize);
   if (pages <= 1) return null;
+  // An out-of-range ?page= still renders the last page, so label it as that.
+  const current = Math.min(page, pages);
 
   const goTo = (next: number) => {
     const params = new URLSearchParams(searchParams);
@@ -39,22 +41,22 @@ export function Pagination({ page, total, pageSize = PAGE_SIZE, pageParam = "pag
         <Button
           variant="outline"
           size="sm"
-          onClick={() => goTo(page - 1)}
-          disabled={page <= 1}
+          onClick={() => goTo(current - 1)}
+          disabled={current <= 1}
         >
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
 
         <span className="text-sm text-muted-foreground tabular-nums">
-          Page {page} of {pages}
+          Page {current} of {pages}
         </span>
 
         <Button
           variant="outline"
           size="sm"
-          onClick={() => goTo(page + 1)}
-          disabled={page >= pages}
+          onClick={() => goTo(current + 1)}
+          disabled={current >= pages}
         >
           Next
           <ChevronRight className="h-4 w-4" />

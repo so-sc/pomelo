@@ -80,8 +80,13 @@ const getContestData = async (req, res, next) => {
     try {
         const contest = req.contest;
 
-        // In the candidate's own order when the test shuffles questions.
-        const questions = orderQuestionsFor(contest, req.user.id);
+        // In the candidate's own order when the test shuffles questions, MCQs first like the
+        // question tray, so the first question a candidate lands on is the tray's first.
+        const ordered = orderQuestionsFor(contest, req.user.id);
+        const questions = [
+            ...ordered.filter((q) => q.type !== 'coding'),
+            ...ordered.filter((q) => q.type === 'coding'),
+        ];
 
         // Fetch User Submission to get saved state
         // Middleware likely attached submission

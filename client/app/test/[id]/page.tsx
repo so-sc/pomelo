@@ -32,6 +32,7 @@ export default function ContestLanding() {
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [justSubmitted] = useState(() => {
     if (typeof window === "undefined" || !testid) return false;
     try {
@@ -78,11 +79,11 @@ export default function ContestLanding() {
           if (result.isCompleted) {
             setAlreadyCompleted(true);
           } else {
-            toast.error(result.error || "Failed to fetch data");
+            setLoadError(result.error || "Failed to fetch data");
           }
         }
       } catch {
-        toast.error("Failed to load instructions");
+        setLoadError("Failed to load this test");
       } finally {
         setLoading(false);
       }
@@ -199,6 +200,17 @@ export default function ContestLanding() {
     </div>
   );
 
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
+      <AlertCircle className="h-10 w-10 text-destructive" />
+      <h1 className="text-2xl font-semibold">{loadError}</h1>
+      <p className="text-muted-foreground">Check the link or join code you were given.</p>
+      <Button variant="outline" className="rounded-full" onClick={() => router.push("/join")}>
+        Enter a join code
+      </Button>
+    </div>
+  );
+
   return (
     <>
       <main className="h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden pt-12">
@@ -284,7 +296,9 @@ export default function ContestLanding() {
           <div className="space-y-10">
             <div>
               <h3 className="font-semibold text-2xl tracking-tight mb-3">Assessment Entry</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
+              {!justSubmitted && !alreadyCompleted && (
+                <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
+              )}
             </div>
 
             {justSubmitted || alreadyCompleted ? (
@@ -296,11 +310,11 @@ export default function ContestLanding() {
                 <h3 className="text-xl font-semibold tracking-tight">
                   {justSubmitted
                     ? "Test submitted successfully!"
-                    : "You&apos;ve already completed this assessment"}
+                    : "You’ve already completed this assessment"}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {justSubmitted
-                    ? "Your responses have been recorded. You can safely close this tab or head back to your dashboard."
+                    ? "Your responses have been recorded. You can safely close this tab or head back home."
                     : "Your submission has been recorded. This page is read-only now — nothing else to do."}
                 </p>
                 <Button
@@ -308,7 +322,7 @@ export default function ContestLanding() {
                   className="w-full h-14 rounded-full"
                   onClick={() => router.push("/")}
                 >
-                  Back to Dashboard
+                  Back to home
                 </Button>
               </div>
             ) : details?.isEnded ? (
