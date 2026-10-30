@@ -45,9 +45,10 @@ export default async function TestLayout({
 
   const problems = result.data?.problems || [];
 
-  const problemMeta = problems.map((q: { id: string; type: string }) => ({
+  const problemMeta = problems.map((q: { id: string; type: string; title?: string }) => ({
     id: String(q.id),
-    type: q.type
+    type: q.type,
+    title: q.title
   }));
   const initialProgress: Record<string, QuestionProgress> = {};
   for (const q of problems as Problem[]) {

@@ -22,7 +22,13 @@ interface CompleteTestOptions {
 export function useTestCompletion() {
   const router = useRouter();
   const params = useParams();
-  const { flushPendingSaves } = useAttemptRuntime();
+  const {
+    beginSubmission,
+    endSubmission,
+    flushPendingSaves,
+    isSubmitting: runtimeIsSubmitting,
+    waitForSubmission,
+  } = useAttemptRuntime();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const testId = String(params.testid ?? "");
@@ -35,8 +41,16 @@ export function useTestCompletion() {
       return { success: false as const };
     }
 
+    let ownsSubmission = beginSubmission();
+    while (!ownsSubmission) {
+      const previousSucceeded = await waitForSubmission();
+      if (previousSucceeded) return { success: true as const };
+      if (!options.forced) return { success: false as const };
+      ownsSubmission = beginSubmission();
+    }
     setIsSubmitting(true);
 
+    let submissionSucceeded = false;
     try {
       // Unsaved MCQ answers (debounced multi-select) must land before the attempt closes.
       await flushPendingSaves();
@@ -49,6 +63,7 @@ export function useTestCompletion() {
         return { success: false as const, data };
       }
 
+      submissionSucceeded = true;
       clearAttemptStorage(testId);
 
       // Remember that this session just submitted successfully, so the
@@ -86,13 +101,14 @@ export function useTestCompletion() {
       );
       return { success: false as const };
     } finally {
+      endSubmission(submissionSucceeded);
       setIsSubmitting(false);
     }
-  }, [router, testId, flushPendingSaves]);
+  }, [router, testId, beginSubmission, endSubmission, flushPendingSaves, waitForSubmission]);
 
   return {
     completeTest,
-    isSubmitting,
+    isSubmitting: isSubmitting || runtimeIsSubmitting,
     testId,
   };
 }

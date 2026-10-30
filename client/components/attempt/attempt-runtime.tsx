@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { submitMcq } from "@/actions/contest";
 import { claimAttemptStorage } from "@/lib/attempt-integrity";
-import { useIsClient } from "@/hooks/use-is-client";
 
 export type ExecutionAction = "run" | "submit";
 
@@ -48,10 +47,18 @@ export interface AttemptRuntime {
   ): Promise<ExecutionResult>;
   saveMcqAnswer(questionId: string, answers: string[]): Promise<McqSaveResult>;
   progress: Record<string, QuestionProgress>;
+  isSubmitting: boolean;
+  beginReviewPreparation(): boolean;
+  endReviewPreparation(): void;
+  isReviewPreparationActive(): boolean;
+  isSubmissionInProgress(): boolean;
+  beginSubmission(): boolean;
+  waitForSubmission(): Promise<boolean>;
+  endSubmission(success: boolean): void;
   /** A question registers how to flush its unsaved answer; returns the unregister function. */
   registerPendingSave(flush: () => Promise<void>): () => void;
   /** Lands every unsaved answer; awaited before the test is submitted. */
-  flushPendingSaves(): Promise<void>;
+  flushPendingSaves(): Promise<Record<string, QuestionProgress>>;
 }
 
 export type QuestionProgress = "attempted" | "solved";
@@ -147,46 +154,97 @@ export function ContestAttemptRuntime({
     if (userId) claimAttemptStorage(contestId, userId);
   });
   const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
+  const progressRef = useRef(progress);
 
-  const isClient = useIsClient();
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  if (isClient && loadedKey !== storageKey) {
-    setLoadedKey(storageKey);
+  const loadedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedKeyRef.current === storageKey) return;
+    loadedKeyRef.current = storageKey;
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      setProgress((prev) => ({ ...stored, ...prev }));
+      const next = { ...stored, ...progressRef.current };
+      progressRef.current = next;
+      setProgress(next);
     } catch { /* localStorage unavailable */ }
-  }
+  }, [storageKey]);
+
+  const isQuestionSolved = useCallback(
+    (questionId: string) => progressRef.current[questionId] === "solved",
+    []
+  );
 
   const setQuestionProgress = useCallback((questionId: string, status: QuestionProgress | null) => {
-    setProgress((prev) => {
-      const next = { ...prev };
-      if (status) next[questionId] = status;
-      else delete next[questionId];
-      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* unavailable */ }
-      return next;
-    });
+    const next = { ...progressRef.current };
+    if (status) next[questionId] = status;
+    else delete next[questionId];
+    progressRef.current = next;
+    setProgress(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* unavailable */ }
   }, [storageKey]);
 
   const pendingSaves = useRef(new Set<() => Promise<void>>());
+  const reviewPreparationInProgress = useRef(false);
+  const submissionInProgress = useRef(false);
+  const submissionResult = useRef<Promise<boolean> | null>(null);
+  const resolveSubmission = useRef<((success: boolean) => void) | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const beginReviewPreparation = useCallback(() => {
+    if (reviewPreparationInProgress.current || submissionInProgress.current) return false;
+    reviewPreparationInProgress.current = true;
+    return true;
+  }, []);
+  const endReviewPreparation = useCallback(() => {
+    reviewPreparationInProgress.current = false;
+  }, []);
+  const isReviewPreparationActive = useCallback(() => reviewPreparationInProgress.current, []);
+  const isSubmissionInProgress = useCallback(() => submissionInProgress.current, []);
+  const beginSubmission = useCallback(() => {
+    if (submissionInProgress.current) return false;
+    submissionInProgress.current = true;
+    reviewPreparationInProgress.current = false;
+    submissionResult.current = new Promise((resolve) => {
+      resolveSubmission.current = resolve;
+    });
+    setIsSubmitting(true);
+    return true;
+  }, []);
+  const waitForSubmission = useCallback(() => submissionResult.current ?? Promise.resolve(false), []);
+  const endSubmission = useCallback((success: boolean) => {
+    submissionInProgress.current = false;
+    setIsSubmitting(false);
+    resolveSubmission.current?.(success);
+    resolveSubmission.current = null;
+    submissionResult.current = null;
+  }, []);
   const registerPendingSave = useCallback((flush: () => Promise<void>) => {
     pendingSaves.current.add(flush);
-    return () => { pendingSaves.current.delete(flush); };
+    return () => {
+      pendingSaves.current.delete(flush);
+    };
   }, []);
   const flushPendingSaves = useCallback(async () => {
     await Promise.all([...pendingSaves.current].map((flush) => flush()));
+    return { ...progressRef.current };
   }, []);
 
   const runtime = useMemo<AttemptRuntime>(() => ({
     mode: "contest",
     progress,
+    isSubmitting,
+    beginReviewPreparation,
+    endReviewPreparation,
+    isReviewPreparationActive,
+    isSubmissionInProgress,
+    beginSubmission,
+    waitForSubmission,
+    endSubmission,
     registerPendingSave,
     flushPendingSaves,
     execute: async (action, questionId, code, language, onExecuting) => {
       const result = await streamExecution(`/api/test/${contestId}/${action}`, questionId, code, language, onExecuting);
       if (result.success) {
         const solved = action === "submit" && result.overallStatus === "Accepted";
-        if (solved || progress[questionId] !== "solved") setQuestionProgress(questionId, solved ? "solved" : "attempted");
+        if (solved || !isQuestionSolved(questionId)) setQuestionProgress(questionId, solved ? "solved" : "attempted");
       }
       return result;
     },
@@ -195,7 +253,7 @@ export function ContestAttemptRuntime({
       if (result.success) setQuestionProgress(questionId, answers.length > 0 ? "solved" : null);
       return result;
     },
-  }), [contestId, progress, setQuestionProgress, registerPendingSave, flushPendingSaves]);
+  }), [contestId, progress, isSubmitting, isQuestionSolved, setQuestionProgress, beginReviewPreparation, endReviewPreparation, isReviewPreparationActive, isSubmissionInProgress, beginSubmission, waitForSubmission, endSubmission, registerPendingSave, flushPendingSaves]);
 
   return (
     <AttemptRuntimeContext.Provider value={runtime}>
@@ -214,6 +272,14 @@ export function PreviewAttemptRuntime({
   const runtime = useMemo<AttemptRuntime>(() => ({
     mode: "preview",
     progress: {},
+    isSubmitting: false,
+    beginReviewPreparation: () => true,
+    endReviewPreparation: () => {},
+    isReviewPreparationActive: () => true,
+    isSubmissionInProgress: () => false,
+    beginSubmission: () => true,
+    waitForSubmission: async () => false,
+    endSubmission: () => {},
     execute: (action, _questionId, code, language, onExecuting) =>
       streamExecution(
         `/api/admin/questions/${questionId}/preview/${action}`,
@@ -224,7 +290,7 @@ export function PreviewAttemptRuntime({
       ),
     saveMcqAnswer: async () => ({ success: true }),
     registerPendingSave: () => () => {},
-    flushPendingSaves: async () => {},
+    flushPendingSaves: async () => ({}),
   }), [questionId]);
 
   return (

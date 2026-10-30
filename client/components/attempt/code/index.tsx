@@ -48,35 +48,54 @@ export function CodeScreen({
   // Restore the language and draft this browser last had open; drafts are saved on every
   // edit, so they are never older than the code the server saved at the last submit.
   const languageKey = `${draftKeyPrefix}_${problemId}_language`;
-  const restoreKey = isMounted ? languageKey : null;
   const [restoredKey, setRestoredKey] = useState<string | null>(null);
-  if (restoreKey !== restoredKey) {
+  const restoreKey = isMounted ? languageKey : null;
+  if (restoreKey && restoredKey !== restoreKey) {
     setRestoredKey(restoreKey);
-    if (restoreKey) {
-      try {
-        const stored = localStorage.getItem(restoreKey);
-        if (stored && (availableLanguages as string[]).includes(stored)) {
-          const draft = localStorage.getItem(draftKey(stored));
-          setLanguage(stored);
-          setCode(draft ?? (stored === problem.savedLanguage && problem.savedCode
-            ? problem.savedCode
-            : boilerplateCode?.[stored as keyof typeof boilerplateCode] || ""));
-        } else if (!problem.savedCode) {
-          const draft = localStorage.getItem(draftKey(initialLanguage));
-          if (draft) setCode(draft);
+    try {
+      const stored = localStorage.getItem(restoreKey);
+      const restoredLanguage = stored && (availableLanguages as string[]).includes(stored)
+        ? stored
+        : initialLanguage;
+      setLanguage(restoredLanguage);
+
+      // The server's saved answer wins for its submitted language. Local drafts
+      // restore other languages without replacing the authoritative saved code.
+      if (restoredLanguage === problem.savedLanguage && problem.savedCode) {
+        setCode(problem.savedCode);
+      } else {
+        const draft = localStorage.getItem(draftKey(restoredLanguage))
+          ?? (!stored && !problem.savedCode ? localStorage.getItem(draftKey(initialLanguage)) : null);
+        if (draft !== null) setCode(draft);
+        else {
+          setCode(boilerplateCode?.[restoredLanguage as keyof typeof boilerplateCode] || "// Start coding here");
         }
-      } catch { /* localStorage unavailable (e.g. private browsing) */ }
-    }
+      }
+    } catch { /* localStorage unavailable (e.g. private browsing) */ }
   }
 
   React.useEffect(() => {
-    if (isMounted && code !== "") {
-      try {
+    if (!isMounted || restoredKey !== languageKey) return;
+    try {
+      if (code !== "") {
         localStorage.setItem(draftKey(language), code);
-        localStorage.setItem(languageKey, language);
-      } catch { /* localStorage unavailable */ }
-    }
-  }, [code, language, isMounted, draftKey, languageKey]);
+      }
+
+      localStorage.setItem(languageKey, language);
+
+      const languages = Object.keys(boilerplateCode || {});
+      const draftLanguages = languages.length > 0 ? languages : [language];
+      const hasEditedDraft = draftLanguages.some((lang) => {
+        const starterCode = boilerplateCode?.[lang as keyof typeof boilerplateCode]
+          || (languages.length === 0 ? "// Start coding here" : "");
+        const savedDraft = lang === language ? code : localStorage.getItem(draftKey(lang));
+        return savedDraft !== null && savedDraft !== starterCode;
+      });
+      const editedDraftKey = `${draftKeyPrefix}_edited_${problemId}`;
+      if (hasEditedDraft) localStorage.setItem(editedDraftKey, "true");
+      else localStorage.removeItem(editedDraftKey);
+    } catch { /* localStorage unavailable */ }
+  }, [code, language, isMounted, restoredKey, languageKey, draftKey, draftKeyPrefix, problemId, boilerplateCode]);
 
   const handleLanguageChange = (newLang: string) => {
     setLanguage(newLang);
@@ -97,7 +116,7 @@ export function CodeScreen({
     }
   };
 
-  if (!isMounted) return null;
+  if (!isMounted || restoredKey !== languageKey) return null;
 
   return (
     <ResizablePanelGroup

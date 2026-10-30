@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Problem, MCQProblem } from "@/types/problem";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { toast } from "@/components/ui/banner";
 
 import { useAttemptRuntime } from "./attempt-runtime";
-import SubmitConfirmDialog from "./submit-confirm-dialog";
-import { useTestCompletion } from "./use-test-completion";
 
 interface MCQScreenProps {
   problem: MCQProblem;
@@ -26,15 +24,17 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
   const [selected, setSelected] = useState<string[]>(problem.savedAnswer || []);
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const runtime = useAttemptRuntime();
   const [isSaving, setIsSaving] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the latest selection for debounced flush
   const pendingSelectionRef = useRef<string[] | null>(null);
-  // Track the latest in-flight save so Finish can await it before submitting
-  const lastSaveRef = useRef<Promise<void> | null>(null);
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const { completeTest, isSubmitting } = useTestCompletion();
+  const lastSaveRef = useRef<Promise<boolean> | null>(null);
+  const queuedSelectionRef = useRef<string[] | null>(null);
+  const [isPreparingReview, setIsPreparingReview] = useState(false);
+  const preparingReviewRef = useRef(false);
+  const isSubmitting = runtime.isSubmitting;
 
   // Create sorting logic matching TestHeader: MCQs first, then Coding
   const mcqProblems = problems.filter((p) => p.type === "mcq");
@@ -65,35 +65,51 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
         } else {
           toast.error(data.error || "Failed to save answer");
         }
+        return false;
       }
+      return true;
     } catch {
       toast.error("Network error saving answer");
+      return false;
     } finally {
       setIsSaving(false);
-      pendingSelectionRef.current = null;
     }
-  }, [runtime, problem._id, problem.id]);
+  }, [runtime, problem.id, problem._id]);
+
+  const queueSave = useCallback((answers: string[]) => {
+    queuedSelectionRef.current = answers;
+    const save = lastSaveRef.current
+      ? lastSaveRef.current.then(() => doSave(answers))
+      : doSave(answers);
+    lastSaveRef.current = save;
+    void save.then((success) => {
+      if (queuedSelectionRef.current === answers) queuedSelectionRef.current = null;
+      if (success && pendingSelectionRef.current === answers) pendingSelectionRef.current = null;
+    });
+    return save;
+  }, [doSave]);
 
   const flushPending = useCallback(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    if (pendingSelectionRef.current !== null) {
-      lastSaveRef.current = doSave(pendingSelectionRef.current);
+    if (pendingSelectionRef.current !== null
+      && queuedSelectionRef.current !== pendingSelectionRef.current) {
+      queueSave(pendingSelectionRef.current);
     }
-  }, [doSave]);
+  }, [queueSave]);
 
   const scheduleSave = useCallback((answers: string[]) => {
-    pendingSelectionRef.current = answers;
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
+    pendingSelectionRef.current = answers;
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      lastSaveRef.current = doSave(answers);
+      queueSave(answers);
     }, DEBOUNCE_MS);
-  }, [doSave]);
+  }, [queueSave]);
 
   // A debounced or in-flight save must land before the test is submitted (from any
   // submit path) or this question unmounts, e.g. when switching questions from the tray.
@@ -102,18 +118,24 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    if (pendingSelectionRef.current !== null) {
-      lastSaveRef.current = doSave(pendingSelectionRef.current);
+    while (true) {
+      flushPending();
+      const save = lastSaveRef.current;
+      const saved = await save;
+      if (saved === false) {
+        if (lastSaveRef.current !== save) continue;
+        throw new Error("Your latest answer could not be saved. Please try again.");
+      }
+      if (lastSaveRef.current === save && pendingSelectionRef.current === null) return;
     }
-    await lastSaveRef.current?.catch(() => {});
-  }, [doSave]);
+  }, [flushPending]);
 
   const { registerPendingSave } = runtime;
   useEffect(() => {
     const unregister = registerPendingSave(flushAll);
     return () => {
-      void flushAll();
-      unregister();
+      const pending = flushAll();
+      void pending.finally(unregister).catch(() => {});
     };
   }, [registerPendingSave, flushAll]);
 
@@ -127,8 +149,8 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    pendingSelectionRef.current = null;
-    lastSaveRef.current = doSave(newSelection);
+    pendingSelectionRef.current = newSelection;
+    queueSave(newSelection);
   };
 
   const handleMultipleSelect = (value: string) => {
@@ -154,15 +176,21 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     }
   };
 
-  const handleFinishClick = () => {
-    setShowSubmitDialog(true);
-  };
-
-  const handleFinishConfirm = async () => {
-    // completeTest lands any pending answer saves first.
-    const result = await completeTest();
-    if (result.success) {
-      setShowSubmitDialog(false);
+  const handleFinishClick = async () => {
+    if (preparingReviewRef.current || isSubmitting || !runtime.beginReviewPreparation()) return;
+    preparingReviewRef.current = true;
+    setIsPreparingReview(true);
+    try {
+      await runtime.flushPendingSaves();
+      if (!runtime.isReviewPreparationActive() || runtime.isSubmissionInProgress()) return;
+      const returnTo = encodeURIComponent(pathname);
+      router.push(`/attempt/test/${params.testid}/review?returnTo=${returnTo}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save answers before review.");
+    } finally {
+      preparingReviewRef.current = false;
+      runtime.endReviewPreparation();
+      setIsPreparingReview(false);
     }
   };
 
@@ -296,25 +324,19 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
             variant="outline"
             className="px-6 font-medium"
             onClick={handlePrev}
-            disabled={!prevProblem}
+            disabled={!prevProblem || isPreparingReview || isSubmitting}
           >
             Prev
           </Button>
           <Button
             className="px-6 font-medium"
             onClick={nextProblem ? handleNext : handleFinishClick}
+            disabled={isPreparingReview || isSubmitting}
           >
-            {nextProblem ? "Next" : "Finish"}
+            {isPreparingReview ? "Preparing..." : nextProblem ? "Next" : "Finish"}
           </Button>
         </div>
       </Card>
-
-      <SubmitConfirmDialog
-        open={showSubmitDialog}
-        isSubmitting={isSubmitting}
-        onConfirm={handleFinishConfirm}
-        onCancel={() => setShowSubmitDialog(false)}
-      />
     </div>
   );
 }

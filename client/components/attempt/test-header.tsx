@@ -3,14 +3,13 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
-import { useRouter, useParams } from "next/navigation";
-import { useTestCompletion } from "./use-test-completion";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { getContestData } from "@/actions/contest";
 import { toast } from "@/components/ui/banner";
 import { readViolationCount, MAX_VIOLATIONS } from "@/lib/attempt-integrity";
 import { useIsClient } from "@/hooks/use-is-client";
 import TestTimer from "./test-timer";
-import SubmitConfirmDialog from "./submit-confirm-dialog";
+import { useAttemptRuntime } from "./attempt-runtime";
 
 interface TestHeaderProps {
   initialTimeRemaining: number;
@@ -19,9 +18,12 @@ interface TestHeaderProps {
 export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   const router = useRouter();
   const params = useParams();
-  const { completeTest, isSubmitting } = useTestCompletion();
+  const pathname = usePathname();
+  const runtime = useAttemptRuntime();
+  const isSubmitting = runtime.isSubmitting;
   const [violations, setViolations] = React.useState(0);
-  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const [isPreparingReview, setIsPreparingReview] = React.useState(false);
+  const preparingReviewRef = React.useRef(false);
 
   const isClient = useIsClient();
   const storageTestId = isClient && params.testid ? String(params.testid) : null;
@@ -75,14 +77,22 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
     return () => clearInterval(interval);
   }, [params.testid, router]);
 
-  const handleFinish = () => {
-    if (!params.testid) return;
-    setShowConfirmDialog(true);
-  };
-
-  const handleConfirmFinish = async () => {
-    setShowConfirmDialog(false);
-    await completeTest({ replace: false });
+  const handleFinish = async () => {
+    if (!params.testid || preparingReviewRef.current || isSubmitting || !runtime.beginReviewPreparation()) return;
+    preparingReviewRef.current = true;
+    setIsPreparingReview(true);
+    try {
+      await runtime.flushPendingSaves();
+      if (!runtime.isReviewPreparationActive() || runtime.isSubmissionInProgress()) return;
+      const returnTo = encodeURIComponent(pathname);
+      router.push(`/attempt/test/${params.testid}/review?returnTo=${returnTo}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save answers before review.");
+    } finally {
+      preparingReviewRef.current = false;
+      runtime.endReviewPreparation();
+      setIsPreparingReview(false);
+    }
   };
 
   return (
@@ -95,21 +105,15 @@ export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
         <ShieldAlert className="h-3.5 w-3.5 text-primary-foreground/70" />
         <span>{MAX_VIOLATIONS - violations}</span>
       </div>
-      <Button
+      {!pathname.endsWith("/review") && <Button
         variant={"secondary"}
         className="text-sm bg-green-600 hover:bg-green-700 text-white border-none h-9 ml-2"
         onClick={handleFinish}
-        disabled={isSubmitting}
+        disabled={isSubmitting || isPreparingReview}
       >
-        {isSubmitting ? "Finishing..." : "Submit"}
-        {!isSubmitting && <BadgeCheck className="h-4 w-4 ml-2" />}
-      </Button>
-      <SubmitConfirmDialog
-        open={showConfirmDialog}
-        isSubmitting={isSubmitting}
-        onConfirm={handleConfirmFinish}
-        onCancel={() => setShowConfirmDialog(false)}
-      />
+        {isPreparingReview ? "Preparing..." : isSubmitting ? "Finishing..." : "Submit"}
+        {!isSubmitting && !isPreparingReview && <BadgeCheck className="h-4 w-4 ml-2" />}
+      </Button>}
     </div>
   );
 }

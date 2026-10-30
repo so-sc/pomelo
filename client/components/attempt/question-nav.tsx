@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuestionProgress, useAttemptRuntime } from "./attempt-runtime";
 
-export type ProblemMeta = { id: string; type: string };
+export type ProblemMeta = { id: string; type: string; title?: string };
 
 function Group({ label, problems, currentId, progress, visited, onSelect }: {
   label: string;
@@ -65,6 +65,8 @@ export default function QuestionNav({ problems }: { problems: ProblemMeta[] }) {
   const coding = problems.filter((p) => p.type === "coding");
   const solvedCount = problems.filter((p) => progress[p.id] === "solved").length;
   const select = (id: string) => router.push(`/attempt/test/${params.testid}/question/${id}`);
+
+  if (pathname.endsWith("/review")) return null;
 
   return (
     <aside className="flex flex-col w-14 shrink-0 h-full bg-background select-none">
