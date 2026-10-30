@@ -169,6 +169,7 @@ export default function TestCaseCard() {
                                     variant="ghost"
                                     size="icon"
                                     className="text-destructive"
+                                    aria-label="Remove variable"
                                     onClick={() => removeVariable(index)}
                                     disabled={testCaseFields.length > 0}
                                 >
@@ -266,6 +267,7 @@ export default function TestCaseCard() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 text-destructive"
+                                                aria-label="Remove test case"
                                                 onClick={() => removeTestCase(index)}
                                             >
                                                 <Trash2 className="h-4 w-4" />

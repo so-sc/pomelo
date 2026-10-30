@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -81,6 +82,14 @@ export default function IntegrityMonitor() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(Math.ceil(FINAL_MODAL_DELAY_MS / 1000));
 
+  const isClient = useIsClient();
+  const storageTestId = isClient && testId && !DISABLE_PROCTORING ? testId : null;
+  const [loadedTestId, setLoadedTestId] = useState<string | null>(null);
+  if (storageTestId !== loadedTestId) {
+    setLoadedTestId(storageTestId);
+    if (storageTestId) setViolationCount(readViolationCount(storageTestId));
+  }
+
   const blurTimeoutRef = useRef<number | null>(null);
   const screenshotTimeoutRef = useRef<number | null>(null);
   const autoSubmitTimeoutRef = useRef<number | null>(null);
@@ -89,10 +98,6 @@ export default function IntegrityMonitor() {
   const isAutoSubmittingRef = useRef(false);
   const isGracePeriodRef = useRef(true);
 
-  const remainingWarnings = useMemo(
-    () => Math.max(0, MAX_VIOLATIONS - violationCount),
-    [violationCount]
-  );
 
   const clearTimers = useCallback(() => {
     if (blurTimeoutRef.current) {
@@ -214,12 +219,8 @@ export default function IntegrityMonitor() {
     if (!testId) return;
     if (DISABLE_PROCTORING) return;
 
-    const storedCount = readViolationCount(testId);
-    setViolationCount(storedCount);
-
     void clearClipboard();
     void requestTestFullscreen();
-    setCountdown(Math.ceil(FINAL_MODAL_DELAY_MS / 1000));
 
     const graceTimer = setTimeout(() => {
       isGracePeriodRef.current = false;
@@ -353,21 +354,27 @@ export default function IntegrityMonitor() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm">
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="integrity-title"
+      aria-describedby="integrity-description"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+    >
       <Card className="w-full max-w-lg rounded-2xl border-border py-0 shadow-2xl">
         <CardHeader className="space-y-3 border-b px-6 py-5">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
               Test Rules
             </p>
-            <CardTitle>
+            <CardTitle id="integrity-title">
               {showLockedModal
                 ? isSubmitting
                   ? "Submitting test"
                   : "Test ended"
                 : warningCopy?.title}
             </CardTitle>
-            <CardDescription className={`leading-6 ${!showLockedModal && warningCopy ? "text-foreground" : ""}`}>
+            <CardDescription id="integrity-description" className={`leading-6 ${!showLockedModal && warningCopy ? "text-foreground" : ""}`}>
               {showLockedModal
                 ? isSubmitting
                   ? "Please wait while your test is submitted."

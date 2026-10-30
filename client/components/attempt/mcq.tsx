@@ -8,13 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Problem, MCQProblem } from "@/types/problem";
-import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { toast } from "@/components/ui/banner";
 
 import { useAttemptRuntime } from "./attempt-runtime";
-import SubmitConfirmDialog from "./submit-confirm-dialog";
-import { useTestCompletion } from "./use-test-completion";
 
 interface MCQScreenProps {
   problem: MCQProblem;
@@ -27,6 +24,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
   const [selected, setSelected] = useState<string[]>(problem.savedAnswer || []);
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const runtime = useAttemptRuntime();
   const [isSaving, setIsSaving] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,11 +32,9 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
   const pendingSelectionRef = useRef<string[] | null>(null);
   const lastSaveRef = useRef<Promise<boolean> | null>(null);
   const queuedSelectionRef = useRef<string[] | null>(null);
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isPreparingReview, setIsPreparingReview] = useState(false);
   const preparingReviewRef = useRef(false);
-  const [reviewProgress, setReviewProgress] = useState(runtime.progress);
-  const { completeTest, isSubmitting } = useTestCompletion();
+  const isSubmitting = runtime.isSubmitting;
 
   // Create sorting logic matching TestHeader: MCQs first, then Coding
   const mcqProblems = problems.filter((p) => p.type === "mcq");
@@ -78,7 +74,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [runtime, problem.id]);
+  }, [runtime, problem.id, problem._id]);
 
   const queueSave = useCallback((answers: string[]) => {
     queuedSelectionRef.current = answers;
@@ -185,24 +181,16 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
     preparingReviewRef.current = true;
     setIsPreparingReview(true);
     try {
-      const savedProgress = await runtime.flushPendingSaves();
+      await runtime.flushPendingSaves();
       if (!runtime.isReviewPreparationActive() || runtime.isSubmissionInProgress()) return;
-      setReviewProgress(savedProgress);
-      setShowSubmitDialog(true);
+      const returnTo = encodeURIComponent(pathname);
+      router.push(`/attempt/test/${params.testid}/review?returnTo=${returnTo}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save answers before review.");
     } finally {
       preparingReviewRef.current = false;
       runtime.endReviewPreparation();
       setIsPreparingReview(false);
-    }
-  };
-
-  const handleFinishConfirm = async () => {
-    // completeTest lands any pending answer saves first.
-    const result = await completeTest();
-    if (result.success) {
-      setShowSubmitDialog(false);
     }
   };
 
@@ -222,7 +210,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
           <div className="py-6 space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-xl font-semibold text-foreground text-start break-words">
+              <h1 className="text-xl font-semibold text-foreground text-start wrap-anywhere">
                 {problem.title}
               </h1>
               {/* Question Type */}
@@ -233,7 +221,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                 </span>
               </div>
               {/* Description */}
-              <p className="mt-4 text-foreground/80 leading-relaxed break-words">
+              <p className="mt-4 text-foreground/80 leading-relaxed whitespace-pre-line wrap-anywhere">
                 {problem.description}
               </p>
             </div>
@@ -242,7 +230,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!isMultiple ? (
                 <RadioGroup
-                  value={selected[0]}
+                  value={selected[0] ?? ""}
                   onValueChange={handleSingleSelect}
                   className="contents"
                 >
@@ -270,7 +258,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               id={optId}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 wrap-anywhere text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (
@@ -311,7 +299,7 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
                               onCheckedChange={() => handleMultipleSelect(optValue)}
                               className="shrink-0"
                             />
-                            <span className="text-base font-medium flex-1 min-w-0 break-words text-foreground">
+                            <span className="text-base font-medium flex-1 min-w-0 wrap-anywhere text-foreground">
                               {optValue}
                             </span>
                             {correctIndices.has(index) && (
@@ -349,24 +337,6 @@ export default function MCQScreen({ problem, problems }: MCQScreenProps) {
           </Button>
         </div>
       </Card>
-
-      <SubmitConfirmDialog
-        open={showSubmitDialog}
-        isSubmitting={isSubmitting}
-        testId={String(params.testid ?? "")}
-        questions={sortedProblems.map((question) => ({
-          id: String(question.id),
-          type: question.type,
-          title: question.title,
-        }))}
-        progress={reviewProgress}
-        onConfirm={handleFinishConfirm}
-        onCancel={() => setShowSubmitDialog(false)}
-        onSelectQuestion={(id) => {
-          setShowSubmitDialog(false);
-          router.push(`/attempt/test/${params.testid}/question/${id}`);
-        }}
-      />
     </div>
   );
 }

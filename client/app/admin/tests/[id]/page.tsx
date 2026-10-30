@@ -7,6 +7,7 @@ import { QuickActionsCard } from "@/components/admin/test/test-detail/actions-ca
 import TestEditQuestions from "@/components/admin/test/questions-list";
 import { db } from "@/lib/db";
 import { Test } from "@/types/test/test.types";
+import { formatDuration } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,6 @@ export default async function AdminTestDetailPage({
       const start = new Date(startTime);
       const end = new Date(endTime);
       const durationMinutes = (data.durationMinutes as number) || 0;
-      const h = Math.floor(durationMinutes / 60);
-      const m = durationMinutes % 60;
 
       // Dynamic stats
       const now = new Date();
@@ -57,7 +56,7 @@ export default async function AdminTestDetailPage({
         id: data._id as string,
         title: data.title as string,
         description: data.description as string,
-        duration: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+        duration: formatDuration(durationMinutes),
         startsAt: startTime,
         endsAt: endTime,
         problems: ((data.questions as Record<string, unknown>[]) || []).map((q) => ({

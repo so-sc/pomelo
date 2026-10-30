@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MdEmail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
 import { toast } from "@/components/ui/banner";
 import { Eye, EyeOff } from "lucide-react";
 import { authenticate } from "@/actions/auth";
 import type { AuthMethods } from "@/lib/auth/providers";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
-import { getSafeCallbackUrl, withCallbackUrl } from "@/lib/return-url";
+import { getSafeCallbackUrl, postLoginUrl, withCallbackUrl } from "@/lib/return-url";
 
 const SSO_ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: "This email is already linked to a different account.",
@@ -25,7 +24,7 @@ const SSO_ERRORS: Record<string, string> = {
 export default function LoginForm({ methods }: { methods: AuthMethods }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ssoError, setSsoError] = useState("");
+  const [oauthError, setOauthError] = useState("");
   const [isEmailPasswordLoading, setIsEmailPasswordLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -38,14 +37,10 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
     typeof window === "undefined" ? undefined : window.location.host,
   );
 
-  useEffect(() => {
-    const error = searchParams.get("error");
-    if (error && SSO_ERRORS[error]) {
-      setSsoError(SSO_ERRORS[error]);
-    } else if (error) {
-      setSsoError("Authentication failed. Please try again.");
-    }
-  }, [searchParams]);
+  const urlError = searchParams.get("error");
+  const ssoError =
+    oauthError ||
+    (urlError ? SSO_ERRORS[urlError] || "Authentication failed. Please try again." : "");
 
   const validateForm = () => {
     let valid = true;
@@ -84,7 +79,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
 
       if (result === "success") {
         // Full load so the new session cookie is picked up everywhere.
-        window.location.href = callbackUrl;
+        window.location.href = postLoginUrl(callbackUrl);
       } else if (result) {
         toast.error(result);
       }
@@ -202,7 +197,7 @@ export default function LoginForm({ methods }: { methods: AuthMethods }) {
             <OAuthButtons
               providers={methods.oauth}
               divider={methods.credentials}
-              onError={setSsoError}
+              onError={setOauthError}
               callbackUrl={callbackUrl}
             />
 

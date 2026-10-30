@@ -6,6 +6,7 @@ import { FcGoogle } from "react-icons/fc";
 import { KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AuthMethods } from "@/lib/auth/providers";
+import { postLoginUrl } from "@/lib/return-url";
 
 // Icons for known providers; anything else gets a generic key.
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
@@ -33,7 +34,7 @@ export function OAuthButtons({ providers, divider, onError, callbackUrl = "/" }:
     onError("");
 
     try {
-      await signIn(id, { callbackUrl });
+      await signIn(id, { callbackUrl: postLoginUrl(callbackUrl) });
     } catch {
       onError(`Failed to initiate ${label} sign-in. Please try again.`);
       setLoadingId(null);

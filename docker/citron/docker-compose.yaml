@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   citron:
-    image: justmodo/citron:latest
+    image: justmodo/citron:v1.0.0
     profiles: ["internal-citron"]
     command: ["citron", "-config", "/opt/citron/configs/citron.conf", "-address", "0.0.0.0:2358"]
     cap_add: [SYS_ADMIN]

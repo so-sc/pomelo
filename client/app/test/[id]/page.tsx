@@ -25,14 +25,22 @@ interface ContestDetails {
 export default function ContestLanding() {
   const { id: testid } = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   const [details, setDetails] = useState<ContestDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
-  const [justSubmitted, setJustSubmitted] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [justSubmitted] = useState(() => {
+    if (typeof window === "undefined" || !testid) return false;
+    try {
+      return Boolean(sessionStorage.getItem(`pomelo_just_submitted_${testid}`));
+    } catch {
+      return false;
+    }
+  });
 
   const updateCountdown = useCallback((startTime: string) => {
     const start = new Date(startTime).getTime();
@@ -54,35 +62,33 @@ export default function ContestLanding() {
     return false;
   }, []);
 
-  const fetchInstructions = useCallback(async () => {
+  useEffect(() => {
     if (status !== "authenticated" || !testid) return;
 
-    try {
-      const result = await getContestLanding(testid as string);
+    (async () => {
+      try {
+        const result = await getContestLanding(testid as string);
 
-      if (result.success && result.data) {
-        const now = new Date().getTime();
-        const end = new Date(result.data.endTime).getTime();
-        const isEnded = result.data.isEnded || now > end;
-        setDetails({ ...result.data, isEnded });
-      } else {
-        // contestMiddleware flags completed attempts with isCompleted: true
-        if (result.isCompleted) {
-          setAlreadyCompleted(true);
+        if (result.success && result.data) {
+          const now = new Date().getTime();
+          const end = new Date(result.data.endTime).getTime();
+          const isEnded = result.data.isEnded || now > end;
+          setDetails({ ...result.data, isEnded });
         } else {
-          toast.error(result.error || "Failed to fetch data");
+          // contestMiddleware flags completed attempts with isCompleted: true
+          if (result.isCompleted) {
+            setAlreadyCompleted(true);
+          } else {
+            setLoadError(result.error || "Failed to fetch data");
+          }
         }
+      } catch {
+        setLoadError("Failed to load this test");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      toast.error("Failed to load instructions");
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, [testid, status]);
-
-  useEffect(() => {
-    if (testid && status === "authenticated") fetchInstructions();
-  }, [testid, status, fetchInstructions]);
 
   // Detect a completed attempt proactively: getContestData is gated by
   // checkAttemptStatus: 'NotCompleted', so the server answers 403 with
@@ -110,10 +116,7 @@ export default function ContestLanding() {
   useEffect(() => {
     if (!testid) return;
     try {
-      if (sessionStorage.getItem(`pomelo_just_submitted_${testid}`)) {
-        setJustSubmitted(true);
-        sessionStorage.removeItem(`pomelo_just_submitted_${testid}`);
-      }
+      sessionStorage.removeItem(`pomelo_just_submitted_${testid}`);
     } catch {
       // sessionStorage unavailable — the probe above still catches completion
     }
@@ -194,6 +197,17 @@ export default function ContestLanding() {
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       <p className="text-muted-foreground animate-pulse">Initializing Session & Fetching Rules...</p>
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
+      <AlertCircle className="h-10 w-10 text-destructive" />
+      <h1 className="text-2xl font-semibold">{loadError}</h1>
+      <p className="text-muted-foreground">Check the link or join code you were given.</p>
+      <Button variant="outline" className="rounded-full" onClick={() => router.push("/join")}>
+        Enter a join code
+      </Button>
     </div>
   );
 
@@ -282,7 +296,9 @@ export default function ContestLanding() {
           <div className="space-y-10">
             <div>
               <h3 className="font-semibold text-2xl tracking-tight mb-3">Assessment Entry</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
+              {!justSubmitted && !alreadyCompleted && (
+                <p className="text-muted-foreground text-sm leading-relaxed">Review the guidelines carefully. When you are ready, you may begin the test.</p>
+              )}
             </div>
 
             {justSubmitted || alreadyCompleted ? (
@@ -294,11 +310,11 @@ export default function ContestLanding() {
                 <h3 className="text-xl font-semibold tracking-tight">
                   {justSubmitted
                     ? "Test submitted successfully!"
-                    : "You&apos;ve already completed this assessment"}
+                    : "You’ve already completed this assessment"}
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {justSubmitted
-                    ? "Your responses have been recorded. You can safely close this tab or head back to your dashboard."
+                    ? "Your responses have been recorded. You can safely close this tab or head back home."
                     : "Your submission has been recorded. This page is read-only now — nothing else to do."}
                 </p>
                 <Button
@@ -306,7 +322,7 @@ export default function ContestLanding() {
                   className="w-full h-14 rounded-full"
                   onClick={() => router.push("/")}
                 >
-                  Back to Dashboard
+                  Back to home
                 </Button>
               </div>
             ) : details?.isEnded ? (

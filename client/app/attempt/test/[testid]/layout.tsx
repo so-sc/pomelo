@@ -62,7 +62,7 @@ export default async function TestLayout({
     <main className="w-screen h-screen pt-12 flex">
       <ContestAttemptRuntime contestId={testid} userId={session?.user?.id} initialProgress={initialProgress}>
         <IntegrityMonitor />
-        <TestHeader initialTimeRemaining={initialTimeRemaining} questions={problemMeta} />
+        <TestHeader initialTimeRemaining={initialTimeRemaining} />
         <QuestionNav problems={problemMeta} />
         <div className={cn("flex-1 min-w-0 h-full", !DISABLE_PROCTORING && "select-none")}>{children}</div>
       </ContestAttemptRuntime>

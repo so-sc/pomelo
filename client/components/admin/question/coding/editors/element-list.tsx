@@ -35,6 +35,7 @@ export function ElementList({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive"
+                        aria-label="Remove item"
                         onClick={() => onChange(items.filter((_, i) => i !== index))}
                     >
                         <Trash2 className="h-3.5 w-3.5" />

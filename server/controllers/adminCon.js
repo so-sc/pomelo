@@ -400,18 +400,20 @@ const createContest = async (req, res, next) => {
         }
 
         // duration is { start, end } — the join window, not the per-user attempt length
-        const startTime = new Date(duration.start);
+        let startTime = new Date(duration.start);
         const endTime = new Date(duration.end);
 
         if (endTime <= startTime) {
             return res.status(400).json({ success: false, error: 'End time must be after start time' });
         }
 
+        // A start time that has already passed opens the test right away, so a test can go
+        // live the moment it is saved; only a join window that has fully closed is rejected.
         const now = new Date();
-        const buffer = 5 * 60 * 1000; // 5 minute buffer
-        if (startTime < new Date(now.getTime() - buffer)) {
-            return res.status(400).json({ success: false, error: 'Start time cannot be in the past' });
+        if (endTime <= now) {
+            return res.status(400).json({ success: false, error: 'The join window has already closed' });
         }
+        if (startTime < now) startTime = now;
 
         // Generate unique 6-digit Join ID — rely on the unique index to detect collisions
         let newContest;
@@ -451,9 +453,13 @@ const cloneContest = async (req, res, next) => {
             return res.status(404).json({ success: false, error: 'Original contest not found' });
         }
 
-        const now = new Date();
-        const startTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
-        const endTime = new Date(now.getTime() + 48 * 60 * 60 * 1000);   // 48 hours from now
+        // Opens in 24 hours with the original's join window, capped below a day: the edit form
+        // only takes a close time, so a 24-hour window reads as "opens 8 PM, closes 8 PM".
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const originalWindow = new Date(originalContest.endTime) - new Date(originalContest.startTime);
+        const windowMs = originalWindow > 0 && originalWindow < DAY_MS ? originalWindow : DAY_MS - 60 * 1000;
+        const startTime = new Date(Date.now() + DAY_MS);
+        const endTime = new Date(startTime.getTime() + windowMs);
 
         // Generate unique 6-digit Join ID — rely on the unique index to detect collisions
         let newContest;

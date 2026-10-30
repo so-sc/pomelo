@@ -28,7 +28,8 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { formatDuration } from "@/lib/date-utils";
 
 function formatTimeForDisplay(hours: number, minutes: number) {
   const period = hours >= 12 ? "PM" : "AM";
@@ -67,6 +68,16 @@ function normalizeTimeInput(value: string) {
   return value.replace(/\b(am|pm)\b/gi, (match) => match.toUpperCase());
 }
 
+const subscribe = () => () => {};
+const clientTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const serverTimezone = () => null;
+const subscribeClock = (onTick: () => void) => {
+  const timer = setInterval(onTick, 30_000);
+  return () => clearInterval(timer);
+};
+const clientNow = () => Math.floor(Date.now() / 30_000) * 30_000;
+const serverNow = () => 0;
+
 export default function TestBasicCard() {
   const { control, setValue, watch } = useFormContext();
 
@@ -81,20 +92,18 @@ export default function TestBasicCard() {
   // Resolved client-side only — the server's ICU data can report a different
   // (sometimes outdated-alias) name for the same zone than the browser does,
   // which causes a hydration mismatch if read during SSR.
-  const [userTimezone, setUserTimezone] = useState<string | null>(null);
-  useEffect(() => {
-    setUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, []);
+  const userTimezone = useSyncExternalStore(subscribe, clientTimezone, serverTimezone);
 
-  useEffect(() => {
-    if (startsAt) {
-      const parsed = new Date(startsAt);
-      if (!isNaN(parsed.getTime())) {
-        setDate(parsed);
-        setTime(formatTimeForInput(parsed));
-      }
+  const clientStartsAt = userTimezone ? startsAt : undefined;
+  const [prevStartsAt, setPrevStartsAt] = useState<string | undefined>(undefined);
+  if (clientStartsAt !== prevStartsAt) {
+    setPrevStartsAt(clientStartsAt);
+    const parsed = clientStartsAt ? new Date(clientStartsAt) : null;
+    if (parsed && !isNaN(parsed.getTime())) {
+      setDate(parsed);
+      setTime(formatTimeForInput(parsed));
     }
-  }, [startsAt]);
+  }
 
   useEffect(() => {
     if (date && time) {
@@ -137,16 +146,11 @@ export default function TestBasicCard() {
     }
   }, [date, endsAtTime, startsAt, setValue]);
 
-  const durationPreview = (() => {
-    const total = Number(durationMinutes);
-    if (!Number.isFinite(total) || total <= 0) return null;
-    const hours = Math.floor(total / 60);
-    const minutes = total % 60;
-    const parts = [];
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0) parts.push(`${minutes}m`);
-    return parts.join(" ") || "0m";
-  })();
+  const isNewTest = !watch("id");
+  const now = useSyncExternalStore(subscribeClock, clientNow, serverNow);
+  const startsInPast = isNewTest && now > 0 && !!startsAt && new Date(startsAt).getTime() < now;
+
+  const durationPreview = Number(durationMinutes) > 0 ? formatDuration(Number(durationMinutes)) : null;
 
   return (
     <Card>
@@ -198,6 +202,11 @@ export default function TestBasicCard() {
             <p className="text-xs text-muted-foreground">
               Participants can start their attempt any time in this window.
             </p>
+            {startsInPast && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                This start time has passed, so the test opens as soon as you save it.
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">

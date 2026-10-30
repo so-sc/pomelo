@@ -42,7 +42,7 @@ export async function submitFeedback(contestId: string, feedback: {
   });
 }
 
-export async function submitMcq(contestId: string, questionId: string, answer: any) {
+export async function submitMcq(contestId: string, questionId: string, answer: string[]) {
   return fetchBackend(`/api/test/${contestId}/mcq`, {
     method: "POST",
     body: JSON.stringify({ questionId, answer }),

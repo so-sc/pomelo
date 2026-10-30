@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pomelo/code-gen build
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pomelo/code-gen build
+      - run: pnpm --filter @pomelo/server test:integration
+        env:
+          FEEDBACK_TEST_MONGODB_URI: mongodb://localhost:27017
+
+  build:
+    name: Build, package and smoke test
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: ./scripts/package.sh ci.tar.gz
+
+      - run: docker build -f server/Dockerfile -t pomelo-server:ci .
+      - run: docker build -f client/Dockerfile -t pomelo-client:ci .
+
+      - name: Smoke test images
+        run: |
+          docker run -d --name server --network host \
+            -e PORT=8080 \
+            -e MONGODB_URI=mongodb://localhost:27017/pomelo \
+            -e AUTH_SECRET=ci-secret \
+            -e AUTH_PROVIDERS=credentials \
+            pomelo-server:ci
+          docker run -d --name client --network host \
+            -e PORT=3000 \
+            -e AUTH_SECRET=ci-secret \
+            -e AUTH_PROVIDERS=credentials \
+            -e AUTH_TRUST_HOST=true \
+            -e BACKEND_URL=http://localhost:8080 \
+            -e DOMAIN=localhost:3000 \
+            -e PROTOCOL=http \
+            pomelo-client:ci
+          for url in http://localhost:8080/ http://localhost:3000/; do
+            for i in $(seq 1 30); do
+              curl -fsS -o /dev/null "$url" && break
+              [ "$i" = 30 ] && { docker logs server; docker logs client; exit 1; }
+              sleep 2
+            done
+            echo "ok $url"
+          done

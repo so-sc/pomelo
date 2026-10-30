@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaCheckCircle } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
 import { RiLockPasswordFill } from "react-icons/ri";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/banner";
 import { Eye, EyeOff } from "lucide-react";
 import { register } from "@/actions/auth";
@@ -22,7 +21,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ssoError, setSsoError] = useState("");
+  const [oauthError, setOauthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -34,14 +33,14 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
     typeof window === "undefined" ? undefined : window.location.host,
   );
 
-  useEffect(() => {
-    const error = searchParams.get("error");
-    if (error === "OAuthAccountNotLinked") {
-      setSsoError("To confirm your identity, sign in with the same account you used originally.");
-    } else if (error) {
-      setSsoError("Authentication failed. Please try again.");
-    }
-  }, [searchParams]);
+  const urlError = searchParams.get("error");
+  const ssoError =
+    oauthError ||
+    (urlError === "OAuthAccountNotLinked"
+      ? "To confirm your identity, sign in with the same account you used originally."
+      : urlError
+        ? "Authentication failed. Please try again."
+        : "");
 
   const validateForm = () => {
     const errors: string[] = [];
@@ -58,6 +57,8 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
 
     if (!password.trim()) {
       errors.push("Password is required.");
+    } else if (password.length < 6) {
+      errors.push("Password must be at least 6 characters.");
     }
 
     if (!confirmPassword.trim()) {
@@ -73,7 +74,8 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
     }
 
     if (errors.length > 0) {
-      errors.forEach((err, i) => setTimeout(() => toast.error(err), i * 100));
+      // The banner holds one message, so show the first problem rather than flashing each.
+      toast.error(errors[0]);
       return false;
     }
 
@@ -237,7 +239,7 @@ export default function RegisterForm({ oauth }: { oauth: AuthMethods["oauth"] })
                   {loading ? "Loading..." : "Continue"}
                 </Button>
 
-                <OAuthButtons providers={oauth} divider onError={setSsoError} callbackUrl={callbackUrl} />
+                <OAuthButtons providers={oauth} divider onError={setOauthError} callbackUrl={callbackUrl} />
               </div>
             </form>
 

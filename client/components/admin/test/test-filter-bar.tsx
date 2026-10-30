@@ -30,7 +30,11 @@ export function TestFilterBar({ search, status, from, to }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term]);
 
-  useEffect(() => setTerm(search), [search]);
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
+    setTerm(search);
+  }
 
   const dateClass =
     "bg-input border border-border rounded-md px-3 py-2 text-sm text-foreground";

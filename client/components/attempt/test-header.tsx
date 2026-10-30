@@ -3,45 +3,45 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
-import { useRouter, useParams } from "next/navigation";
-import { useTestCompletion } from "./use-test-completion";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { getContestData } from "@/actions/contest";
 import { toast } from "@/components/ui/banner";
 import { readViolationCount, MAX_VIOLATIONS } from "@/lib/attempt-integrity";
+import { useIsClient } from "@/hooks/use-is-client";
 import TestTimer from "./test-timer";
-import SubmitConfirmDialog from "./submit-confirm-dialog";
 import { useAttemptRuntime } from "./attempt-runtime";
-import type { ProblemMeta } from "./question-nav";
 
 interface TestHeaderProps {
   initialTimeRemaining: number;
-  questions: ProblemMeta[];
 }
 
-export default function TestHeader({ initialTimeRemaining, questions }: TestHeaderProps) {
+export default function TestHeader({ initialTimeRemaining }: TestHeaderProps) {
   const router = useRouter();
   const params = useParams();
-  const { completeTest, isSubmitting } = useTestCompletion();
+  const pathname = usePathname();
   const runtime = useAttemptRuntime();
+  const isSubmitting = runtime.isSubmitting;
   const [violations, setViolations] = React.useState(0);
-  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [isPreparingReview, setIsPreparingReview] = React.useState(false);
   const preparingReviewRef = React.useRef(false);
-  const [reviewProgress, setReviewProgress] = React.useState(runtime.progress);
+
+  const isClient = useIsClient();
+  const storageTestId = isClient && params.testid ? String(params.testid) : null;
+  const [loadedTestId, setLoadedTestId] = React.useState<string | null>(null);
+  if (storageTestId !== loadedTestId) {
+    setLoadedTestId(storageTestId);
+    if (storageTestId) setViolations(readViolationCount(storageTestId));
+  }
 
   // Sync with cross-tab/local violation updates
   React.useEffect(() => {
-    if (params.testid) {
-      setViolations(readViolationCount(params.testid as string));
-    }
-
-    const handleViolationUpdate = (e: any) => {
-      setViolations(e.detail.count);
+    const handleViolationUpdate = (e: Event) => {
+      setViolations((e as CustomEvent<{ count: number }>).detail.count);
     };
 
     window.addEventListener("pomelo-violation-update", handleViolationUpdate);
     return () => window.removeEventListener("pomelo-violation-update", handleViolationUpdate);
-  }, [params.testid]);
+  }, []);
 
   // Handle BFCache (Back/Forward Cache)
   // If user presses back button after finishing, force a refresh to trigger server-side checks
@@ -82,10 +82,10 @@ export default function TestHeader({ initialTimeRemaining, questions }: TestHead
     preparingReviewRef.current = true;
     setIsPreparingReview(true);
     try {
-      const savedProgress = await runtime.flushPendingSaves();
+      await runtime.flushPendingSaves();
       if (!runtime.isReviewPreparationActive() || runtime.isSubmissionInProgress()) return;
-      setReviewProgress(savedProgress);
-      setShowConfirmDialog(true);
+      const returnTo = encodeURIComponent(pathname);
+      router.push(`/attempt/test/${params.testid}/review?returnTo=${returnTo}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save answers before review.");
     } finally {
@@ -93,11 +93,6 @@ export default function TestHeader({ initialTimeRemaining, questions }: TestHead
       runtime.endReviewPreparation();
       setIsPreparingReview(false);
     }
-  };
-
-  const handleConfirmFinish = async () => {
-    const result = await completeTest({ replace: false });
-    if (result.success) setShowConfirmDialog(false);
   };
 
   return (
@@ -110,7 +105,7 @@ export default function TestHeader({ initialTimeRemaining, questions }: TestHead
         <ShieldAlert className="h-3.5 w-3.5 text-primary-foreground/70" />
         <span>{MAX_VIOLATIONS - violations}</span>
       </div>
-      <Button
+      {!pathname.endsWith("/review") && <Button
         variant={"secondary"}
         className="text-sm bg-green-600 hover:bg-green-700 text-white border-none h-9 ml-2"
         onClick={handleFinish}
@@ -118,20 +113,7 @@ export default function TestHeader({ initialTimeRemaining, questions }: TestHead
       >
         {isPreparingReview ? "Preparing..." : isSubmitting ? "Finishing..." : "Submit"}
         {!isSubmitting && !isPreparingReview && <BadgeCheck className="h-4 w-4 ml-2" />}
-      </Button>
-      <SubmitConfirmDialog
-        open={showConfirmDialog}
-        isSubmitting={isSubmitting}
-        testId={String(params.testid ?? "")}
-        questions={questions}
-        progress={reviewProgress}
-        onConfirm={handleConfirmFinish}
-        onCancel={() => setShowConfirmDialog(false)}
-        onSelectQuestion={(id) => {
-          setShowConfirmDialog(false);
-          router.push(`/attempt/test/${params.testid}/question/${id}`);
-        }}
-      />
+      </Button>}
     </div>
   );
 }

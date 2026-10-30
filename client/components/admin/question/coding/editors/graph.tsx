@@ -68,6 +68,7 @@ export function GraphEditor({ value, onChange, record }: EditorProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive shrink-0"
+                        aria-label="Remove edge"
                         onClick={() => update({ edges: edges.filter((_, i) => i !== index) })}
                     >
                         <Trash2 className="h-3.5 w-3.5" />

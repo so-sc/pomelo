@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { submitMcq } from "@/actions/contest";
 import { claimAttemptStorage } from "@/lib/attempt-integrity";
+import { useIsClient } from "@/hooks/use-is-client";
 
 export type ExecutionAction = "run" | "submit";
 
@@ -156,14 +157,17 @@ export function ContestAttemptRuntime({
   const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
   const progressRef = useRef(progress);
 
-  useEffect(() => {
+  const isClient = useIsClient();
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  if (isClient && loadedKey !== storageKey) {
+    setLoadedKey(storageKey);
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
       const next = { ...stored, ...progressRef.current };
       progressRef.current = next;
       setProgress(next);
     } catch { /* localStorage unavailable */ }
-  }, [storageKey]);
+  }
 
   const setQuestionProgress = useCallback((questionId: string, status: QuestionProgress | null) => {
     const next = { ...progressRef.current };

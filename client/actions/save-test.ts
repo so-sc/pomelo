@@ -9,13 +9,7 @@ export async function saveTest(_prevState: Record<string, unknown>, data: TestSc
     const validatedData = testSchema.parse(data);
     const startDate = new Date(validatedData.startsAt);
     const endDate = new Date(validatedData.endsAt);
-    const now = new Date();
-    const bufferMs = 5 * 60 * 1000;
     const isUpdate = !!validatedData.id;
-
-    if (!isUpdate && startDate.getTime() < now.getTime() - bufferMs) {
-      throw new Error("Start time cannot be in the past");
-    }
 
     if (endDate <= startDate) {
       throw new Error("End time must be after start time");

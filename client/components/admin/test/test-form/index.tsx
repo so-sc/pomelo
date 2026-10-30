@@ -4,7 +4,7 @@ import { Test, TestSchema, testSchema } from "@/types/test";
 import QuestionAddCard from "./add-question";
 import TestBasicCard from "./info-card";
 import RulesCard from "./rules-card";
-import { useForm, Resolver } from "react-hook-form";
+import { useForm, useWatch, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import Link from "next/link";
@@ -52,10 +52,10 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
       endsAt: defaultSchedule.endsAt,
       durationMinutes: defaultSchedule.durationMinutes,
       status: "waiting",
-      problems: [],
       rules: [],
       shuffleQuestions: false,
       ...testData,
+      problems: (testData?.problems as string[] | undefined) ?? [],
     },
   });
 
@@ -73,7 +73,7 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state.success, state.message, router]);
+  }, [state, router]);
 
   const handleSubmit = form.handleSubmit((data) => {
     startTransition(() => {
@@ -81,14 +81,14 @@ export default function TestForm({ testData, availableQuestions = [], previewRet
     });
   });
 
-  const questions = form.watch("problems") as string[];
+  const questions = useWatch({ control: form.control, name: "problems" }) as string[];
 
   return (
     <div className="max-w-none w-full p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href={`/admin/tests/${testData?.id || ''}`}>
-            <Button variant="outline" size="icon" className="text-foreground">
+            <Button variant="outline" size="icon" className="text-foreground" aria-label="Back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>

@@ -49,7 +49,7 @@ The client will typically be available at `http://localhost:3000` and the server
 ## Pull Request Process
 
 1. Fork the repository and create a new branch from `main`.
-2. Ensure your code strictly follows existing formatting and linting rules. Run `pnpm lint` if available.
+2. Ensure your code strictly follows existing formatting and linting rules. Run `pnpm lint`, `pnpm typecheck` and `pnpm test`; CI runs them on every PR.
 3. Keep pull requests scoped to a single feature or bug fix.
 4. Update relevant documentation if you change configuration variables, add new features, or alter deployment scripts.
 5. Submit the pull request against the `main` branch.

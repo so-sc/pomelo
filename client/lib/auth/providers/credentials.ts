@@ -37,8 +37,8 @@ export const credentials: AuthProviderEntry = {
                         headers: { 'Content-Type': 'application/json', ...(await clientIpHeaders()) },
                         body: JSON.stringify({ email, password })
                     });
-                } catch (error: any) {
-                    console.error(`Auth API error: ${error.message || 'Unknown error'}`);
+                } catch (error) {
+                    console.error(`Auth API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
                     throw new LoginFailure(LOGIN_UNAVAILABLE);
                 }
 

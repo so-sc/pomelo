@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ export function TestDetailHeader({ test }: TestDetailHeaderProps) {
               variant="outline"
               size="icon"
               className="border-border text-foreground hover:bg-accent flex-shrink-0"
+              aria-label="Back to tests"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>

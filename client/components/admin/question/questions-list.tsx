@@ -35,7 +35,11 @@ export function QuestionsList({ questions, total, page, search, type, difficulty
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term]);
 
-  useEffect(() => setTerm(search), [search]);
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
+    setTerm(search);
+  }
 
   const isFiltered = Boolean(search || type || difficulty);
 

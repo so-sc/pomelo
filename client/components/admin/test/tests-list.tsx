@@ -48,15 +48,6 @@ export function TestsList({ initialTests, total, page, search, status, from, to 
   // Map mongo objects to the shape TestCard expects. Order comes from the
   // server (createdAt desc) — reversing here would only reverse one page.
   const tests = initialTests.map(t => {
-    const totalMinutes = t.durationMinutes || 0;
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    let durationStr = "";
-    if (hours > 0) durationStr += `${hours}h `;
-    if (minutes > 0) durationStr += `${minutes}m `;
-    if (!durationStr) durationStr = "0m";
-
     return {
       id: (t.id || t._id || '') as string,
       title: t.title,
@@ -66,7 +57,7 @@ export function TestsList({ initialTests, total, page, search, status, from, to 
       questions: t.problemCount || t.questions?.length || 0,
       totalQuestions: t.problemCount || t.questions?.length || 0,
       problems: (t.questions || []) as string[],
-      duration: t.duration || durationStr.trim(),
+      duration: t.duration || "",
       startsAt: t.startsAt || t.startTime || '',
       endsAt: t.endsAt || t.endTime || '',
        participantsInProgress: t.participantsInProgress ?? t.participants ?? 0,

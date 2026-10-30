@@ -1,29 +1,21 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useIsClient } from "@/hooks/use-is-client";
 import { BsMoonFill, BsSunFill } from "react-icons/bs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "motion/react";
 
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [isReady, setIsReady] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-  const manuallyToggled = useRef(false);
-
-  useEffect(() => {
-    if (resolvedTheme) {
-      setIsDark(resolvedTheme === "dark");
-      setIsReady(true);
-    }
-  }, [resolvedTheme]);
+  const isReady = useIsClient() && Boolean(resolvedTheme);
+  const isDark = resolvedTheme === "dark";
+  const [manuallyToggled, setManuallyToggled] = useState(false);
 
   const handleToggle = () => {
-    const newTheme = isDark ? "light" : "dark";
-    setTheme(newTheme);
-    setIsDark(!isDark);
-    manuallyToggled.current = true;
+    setTheme(isDark ? "light" : "dark");
+    setManuallyToggled(true);
   };
 
   if (!isReady) {
@@ -39,7 +31,7 @@ export function ModeToggle() {
       <motion.div
         layout
         transition={
-          manuallyToggled.current
+          manuallyToggled
             ? { type: "spring", stiffness: 300, damping: 25 }
             : { duration: 0 }
         }

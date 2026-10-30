@@ -22,6 +22,7 @@ export function MatrixEditor({ value, onChange }: EditorProps) {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-destructive"
+                            aria-label="Remove row"
                             onClick={() => onChange(rows.filter((_, i) => i !== rowIndex))}
                         >
                             <Trash2 className="h-3.5 w-3.5" />

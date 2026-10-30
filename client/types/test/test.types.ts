@@ -1,3 +1,5 @@
+import type { BaseProblem } from "@/types/problem/problem.types";
+
 export interface TestParticipant {
   userId: string;
   name: string;
@@ -20,7 +22,7 @@ export interface Test {
   status: "waiting" | "ongoing" | "completed";
   participantsInProgress: number;
   participantsCompleted: number;
-  problems: string[] | any[];
+  problems: string[] | BaseProblem[];
   participants?: TestParticipant[];
   joinId: string;
   rules?: string[];

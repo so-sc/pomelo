@@ -12,6 +12,8 @@ export async function exportQuestion(id: string) {
       return { success: false as const, message: payload.error || "Failed to export question" };
     }
 
+    // fetchBackend's status field is not part of the exported file.
+    delete payload.httpStatus;
     return { success: true as const, payload };
   } catch (error) {
     return {

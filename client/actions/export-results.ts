@@ -32,6 +32,8 @@ export async function exportContestSubmissions(contestId: string, verbose: boole
       return { success: false as const, message: payload.error || "Failed to export submissions" };
     }
 
+    // fetchBackend's status field is not part of the exported file.
+    delete payload.httpStatus;
     return { success: true as const, payload };
   } catch (error) {
     return {
