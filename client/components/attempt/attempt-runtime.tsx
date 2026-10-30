@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { submitMcq } from "@/actions/contest";
 import { claimAttemptStorage } from "@/lib/attempt-integrity";
-import { useIsClient } from "@/hooks/use-is-client";
 
 export type ExecutionAction = "run" | "submit";
 
@@ -157,17 +156,22 @@ export function ContestAttemptRuntime({
   const [progress, setProgress] = useState<Record<string, QuestionProgress>>(initialProgress);
   const progressRef = useRef(progress);
 
-  const isClient = useIsClient();
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  if (isClient && loadedKey !== storageKey) {
-    setLoadedKey(storageKey);
+  const loadedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedKeyRef.current === storageKey) return;
+    loadedKeyRef.current = storageKey;
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
       const next = { ...stored, ...progressRef.current };
       progressRef.current = next;
       setProgress(next);
     } catch { /* localStorage unavailable */ }
-  }
+  }, [storageKey]);
+
+  const isQuestionSolved = useCallback(
+    (questionId: string) => progressRef.current[questionId] === "solved",
+    []
+  );
 
   const setQuestionProgress = useCallback((questionId: string, status: QuestionProgress | null) => {
     const next = { ...progressRef.current };
@@ -240,7 +244,7 @@ export function ContestAttemptRuntime({
       const result = await streamExecution(`/api/test/${contestId}/${action}`, questionId, code, language, onExecuting);
       if (result.success) {
         const solved = action === "submit" && result.overallStatus === "Accepted";
-        if (solved || progress[questionId] !== "solved") setQuestionProgress(questionId, solved ? "solved" : "attempted");
+        if (solved || !isQuestionSolved(questionId)) setQuestionProgress(questionId, solved ? "solved" : "attempted");
       }
       return result;
     },
@@ -249,7 +253,7 @@ export function ContestAttemptRuntime({
       if (result.success) setQuestionProgress(questionId, answers.length > 0 ? "solved" : null);
       return result;
     },
-  }), [contestId, progress, isSubmitting, setQuestionProgress, beginReviewPreparation, endReviewPreparation, isReviewPreparationActive, isSubmissionInProgress, beginSubmission, waitForSubmission, endSubmission, registerPendingSave, flushPendingSaves]);
+  }), [contestId, progress, isSubmitting, isQuestionSolved, setQuestionProgress, beginReviewPreparation, endReviewPreparation, isReviewPreparationActive, isSubmissionInProgress, beginSubmission, waitForSubmission, endSubmission, registerPendingSave, flushPendingSaves]);
 
   return (
     <AttemptRuntimeContext.Provider value={runtime}>
